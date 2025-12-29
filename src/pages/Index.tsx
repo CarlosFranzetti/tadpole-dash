@@ -1,16 +1,18 @@
 import { useState, useCallback } from 'react';
-import { GameState } from '@/lib/gameTypes';
+import { GameState, SwipeDirection } from '@/lib/gameTypes';
 import { TitleScreen } from '@/components/game/TitleScreen';
 import { GameCanvas } from '@/components/game/GameCanvas';
 import { GameHUD } from '@/components/game/GameHUD';
 import { GameOverScreen } from '@/components/game/GameOverScreen';
 import { HighScoreTable } from '@/components/game/HighScoreTable';
+import { SwipeIndicator } from '@/components/game/SwipeIndicator';
 import { useGameLogic } from '@/hooks/useGameLogic';
 import { useSwipeControls } from '@/hooks/useSwipeControls';
 import { useHighScores } from '@/hooks/useHighScores';
 
 const Index = () => {
   const [gameState, setGameState] = useState<GameState>('title');
+  const [lastSwipe, setLastSwipe] = useState<SwipeDirection>(null);
   const { highScores, addHighScore, isHighScore } = useHighScores();
   const { player, lanes, homeSpots, level, isGameOver, startGame, movePlayer } = useGameLogic();
 
@@ -19,8 +21,9 @@ const Index = () => {
     startGame();
   }, [startGame]);
 
-  const handleSwipe = useCallback((direction: 'up' | 'down' | 'left' | 'right' | null) => {
+  const handleSwipe = useCallback((direction: SwipeDirection) => {
     if (gameState === 'playing' && direction) {
+      setLastSwipe(direction);
       movePlayer(direction);
     }
   }, [gameState, movePlayer]);
@@ -63,7 +66,10 @@ const Index = () => {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-emerald-900 via-emerald-800 to-cyan-900 p-2">
       <GameHUD lives={player.lives} score={player.score} level={level} />
-      <GameCanvas player={player} lanes={lanes} homeSpots={homeSpots} level={level} />
+      <div className="relative">
+        <GameCanvas player={player} lanes={lanes} homeSpots={homeSpots} level={level} />
+        <SwipeIndicator direction={lastSwipe} />
+      </div>
       
       {/* Mobile swipe hint */}
       <p className="text-emerald-300/50 text-sm mt-4">Swipe to move your frog!</p>
