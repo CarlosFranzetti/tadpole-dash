@@ -30,7 +30,7 @@ const Index = () => {
 
   useSwipeControls({
     onSwipe: handleSwipe,
-    enabled: gameState === 'playing',
+    enabled: gameState === 'playing' && !isGameOver,
   });
 
   const handleSubmitScore = useCallback((initials: string) => {
