@@ -12,12 +12,19 @@ export const useSwipeControls = ({ onSwipe, minSwipeDistance = 15, enabled = tru
 
   const handleTouchStart = useCallback((e: TouchEvent) => {
     if (!enabled) return;
+    e.preventDefault();
     const touch = e.touches[0];
     touchStart.current = { x: touch.clientX, y: touch.clientY };
   }, [enabled]);
 
+  const handleTouchMove = useCallback((e: TouchEvent) => {
+    if (!enabled) return;
+    e.preventDefault();
+  }, [enabled]);
+
   const handleTouchEnd = useCallback((e: TouchEvent) => {
     if (!enabled || !touchStart.current) return;
+    e.preventDefault();
     
     const touch = e.changedTouches[0];
     const deltaX = touch.clientX - touchStart.current.x;
@@ -75,14 +82,18 @@ export const useSwipeControls = ({ onSwipe, minSwipeDistance = 15, enabled = tru
   }, [enabled, onSwipe]);
 
   useEffect(() => {
-    window.addEventListener('touchstart', handleTouchStart, { passive: true });
-    window.addEventListener('touchend', handleTouchEnd, { passive: true });
+    const options = { passive: false };
+    
+    window.addEventListener('touchstart', handleTouchStart, options);
+    window.addEventListener('touchmove', handleTouchMove, options);
+    window.addEventListener('touchend', handleTouchEnd, options);
     window.addEventListener('keydown', handleKeyDown);
     
     return () => {
       window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchmove', handleTouchMove);
       window.removeEventListener('touchend', handleTouchEnd);
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [handleTouchStart, handleTouchEnd, handleKeyDown]);
+  }, [handleTouchStart, handleTouchMove, handleTouchEnd, handleKeyDown]);
 };
