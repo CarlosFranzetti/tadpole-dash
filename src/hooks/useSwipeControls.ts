@@ -7,7 +7,7 @@ interface SwipeConfig {
   enabled?: boolean;
 }
 
-export const useSwipeControls = ({ onSwipe, minSwipeDistance = 30, enabled = true }: SwipeConfig) => {
+export const useSwipeControls = ({ onSwipe, minSwipeDistance = 15, enabled = true }: SwipeConfig) => {
   const touchStart = useRef<{ x: number; y: number } | null>(null);
 
   const handleTouchStart = useCallback((e: TouchEvent) => {

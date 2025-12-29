@@ -6,20 +6,20 @@ export const PLAYER_SIZE = 36;
 export const LANES_CONFIG = [
   // Home spots row
   { type: 'home' as const, y: 0 },
-  // Water lanes (5 lanes)
-  { type: 'water' as const, y: 1, speed: 1.5, direction: -1 as const, objectType: 'log-long' },
-  { type: 'water' as const, y: 2, speed: 2, direction: 1 as const, objectType: 'turtle' },
-  { type: 'water' as const, y: 3, speed: 1.2, direction: -1 as const, objectType: 'log-short' },
-  { type: 'water' as const, y: 4, speed: 2.5, direction: 1 as const, objectType: 'turtle' },
-  { type: 'water' as const, y: 5, speed: 1.8, direction: -1 as const, objectType: 'log-medium' },
+  // Water lanes (5 lanes) - slower base speeds for level 1
+  { type: 'water' as const, y: 1, speed: 0.8, direction: -1 as const, objectType: 'log-long' },
+  { type: 'water' as const, y: 2, speed: 1.0, direction: 1 as const, objectType: 'turtle' },
+  { type: 'water' as const, y: 3, speed: 0.6, direction: -1 as const, objectType: 'log-short' },
+  { type: 'water' as const, y: 4, speed: 1.2, direction: 1 as const, objectType: 'turtle' },
+  { type: 'water' as const, y: 5, speed: 0.9, direction: -1 as const, objectType: 'log-medium' },
   // Safe zone
   { type: 'safe' as const, y: 6 },
-  // Road lanes (5 lanes)
-  { type: 'road' as const, y: 7, speed: 2, direction: 1 as const, objectType: 'car' },
-  { type: 'road' as const, y: 8, speed: 3, direction: -1 as const, objectType: 'truck' },
-  { type: 'road' as const, y: 9, speed: 1.5, direction: 1 as const, objectType: 'car' },
-  { type: 'road' as const, y: 10, speed: 2.5, direction: -1 as const, objectType: 'truck' },
-  { type: 'road' as const, y: 11, speed: 2, direction: 1 as const, objectType: 'car' },
+  // Road lanes (5 lanes) - slower base speeds for level 1
+  { type: 'road' as const, y: 7, speed: 1.0, direction: 1 as const, objectType: 'car' },
+  { type: 'road' as const, y: 8, speed: 1.5, direction: -1 as const, objectType: 'truck' },
+  { type: 'road' as const, y: 9, speed: 0.8, direction: 1 as const, objectType: 'car' },
+  { type: 'road' as const, y: 10, speed: 1.2, direction: -1 as const, objectType: 'truck' },
+  { type: 'road' as const, y: 11, speed: 1.0, direction: 1 as const, objectType: 'car' },
   // Starting safe zone
   { type: 'safe' as const, y: 12 },
 ];
