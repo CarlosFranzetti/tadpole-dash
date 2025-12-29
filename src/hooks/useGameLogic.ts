@@ -229,24 +229,34 @@ export const useGameLogic = () => {
         return;
       }
 
-      // Update lane objects
-      setLanes(prevLanes => prevLanes.map(lane => {
-        if (lane.type === 'safe' || lane.type === 'home') return lane;
+      // Update lane objects with progressive speed based on player position
+      setPlayer(currentPlayer => {
+        const playerRow = Math.floor(currentPlayer.y / TILE_SIZE);
+        // Row 12 = start (slowest), Row 6 = middle (full speed)
+        // Speed ramps from 0.4x at row 12 to 1x at row 6 and beyond
+        const progressToMiddle = Math.max(0, Math.min(1, (12 - playerRow) / 6));
+        const progressiveSpeedMultiplier = 0.4 + (progressToMiddle * 0.6);
 
-        const updatedObjects = lane.objects.map(obj => {
-          let newX = obj.x + obj.speed * obj.direction * (deltaTime / 16);
-          
-          if (obj.direction === 1 && newX > GAME_WIDTH + 50) {
-            newX = -obj.width - 50;
-          } else if (obj.direction === -1 && newX < -obj.width - 50) {
-            newX = GAME_WIDTH + 50;
-          }
+        setLanes(prevLanes => prevLanes.map(lane => {
+          if (lane.type === 'safe' || lane.type === 'home') return lane;
 
-          return { ...obj, x: newX };
-        });
+          const updatedObjects = lane.objects.map(obj => {
+            let newX = obj.x + obj.speed * obj.direction * progressiveSpeedMultiplier * (deltaTime / 16);
+            
+            if (obj.direction === 1 && newX > GAME_WIDTH + 50) {
+              newX = -obj.width - 50;
+            } else if (obj.direction === -1 && newX < -obj.width - 50) {
+              newX = GAME_WIDTH + 50;
+            }
 
-        return { ...lane, objects: updatedObjects };
-      }));
+            return { ...obj, x: newX };
+          });
+
+          return { ...lane, objects: updatedObjects };
+        }));
+
+        return currentPlayer;
+      });
 
       // Update player position (smooth movement)
       setPlayer(prev => {
