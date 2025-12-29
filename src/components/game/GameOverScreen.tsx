@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 
 interface GameOverScreenProps {
@@ -21,11 +21,29 @@ export const GameOverScreen = ({
   const [initials, setInitials] = useState('');
   const [submitted, setSubmitted] = useState(false);
 
+  // Reset state when score changes (new game over)
+  useEffect(() => {
+    setInitials('');
+    setSubmitted(false);
+  }, [score]);
+
   const handleSubmit = () => {
     if (initials.length >= 1) {
       onSubmitScore(initials.toUpperCase().padEnd(3, ' '));
       setSubmitted(true);
     }
+  };
+
+  const handlePlayAgain = () => {
+    setInitials('');
+    setSubmitted(false);
+    onPlayAgain();
+  };
+
+  const handleMainMenu = () => {
+    setInitials('');
+    setSubmitted(false);
+    onMainMenu();
   };
 
   return (
@@ -95,13 +113,13 @@ export const GameOverScreen = ({
 
         <div className="flex flex-col gap-3">
           <button
-            onClick={onPlayAgain}
+            onClick={handlePlayAgain}
             className="w-full py-3 bg-gradient-to-r from-lime-500 to-green-600 hover:from-lime-400 hover:to-green-500 text-white font-bold text-lg rounded-lg shadow-lg transition-all border-b-4 border-green-700 active:border-b-0 active:translate-y-1"
           >
             PLAY AGAIN
           </button>
           <button
-            onClick={onMainMenu}
+            onClick={handleMainMenu}
             className="w-full py-3 bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-500 hover:to-gray-600 text-white font-bold rounded-lg shadow-lg transition-all border-b-4 border-gray-800 active:border-b-0 active:translate-y-1"
           >
             MAIN MENU
