@@ -10,7 +10,12 @@ export const TitleScreen = ({ onStart, highScores }: TitleScreenProps) => {
   const displayScores = highScores.slice(0, 5);
 
   return (
-    <div className="flex flex-col items-center justify-start min-h-screen bg-gradient-to-b from-emerald-900 via-emerald-800 to-cyan-900 p-4 pt-[12vh]">
+    <motion.div 
+      className="flex flex-col items-center justify-start min-h-screen bg-gradient-to-b from-emerald-900 via-emerald-800 to-cyan-900 p-4 pt-[12vh]"
+      initial={{ opacity: 0, backgroundColor: '#000' }}
+      animate={{ opacity: 1, backgroundColor: 'transparent' }}
+      transition={{ duration: 1.2, ease: 'easeOut' }}
+    >
       {/* Pixel Art Frog */}
       <motion.div 
         className="mb-4"
@@ -165,6 +170,6 @@ export const TitleScreen = ({ onStart, highScores }: TitleScreenProps) => {
           />
         ))}
       </div>
-    </div>
+    </motion.div>
   );
 };
