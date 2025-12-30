@@ -14,7 +14,7 @@ const Index = () => {
   const [gameState, setGameState] = useState<GameState>('title');
   const [lastSwipe, setLastSwipe] = useState<SwipeDirection>(null);
   const { highScores, addHighScore, isHighScore } = useHighScores();
-  const { player, lanes, homeSpots, level, isGameOver, startGame, movePlayer } = useGameLogic();
+  const { player, lanes, homeSpots, level, isGameOver, powerUp, isInvincible, startGame, movePlayer } = useGameLogic();
 
   const handleStartGame = useCallback(() => {
     setGameState('playing');
@@ -67,7 +67,7 @@ const Index = () => {
     <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-emerald-900 via-emerald-800 to-cyan-900 p-2">
       <GameHUD lives={player.lives} score={player.score} level={level} />
       <div className="relative">
-        <GameCanvas player={player} lanes={lanes} homeSpots={homeSpots} level={level} />
+        <GameCanvas player={player} lanes={lanes} homeSpots={homeSpots} level={level} powerUp={powerUp} isInvincible={isInvincible} />
         <SwipeIndicator direction={lastSwipe} />
       </div>
       
