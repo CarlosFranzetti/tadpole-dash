@@ -37,9 +37,16 @@ const MUSIC_NOTES = [
 export const useSoundEffects = () => {
   const audioContextRef = useRef<AudioContext | null>(null);
   const [isMuted, setIsMuted] = useState(false);
+  const isMutedRef = useRef(false);
   const musicIntervalRef = useRef<number | null>(null);
   const musicIndexRef = useRef(0);
   const isMusicPlayingRef = useRef(false);
+  const wasMusicPlayingRef = useRef(false);
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    isMutedRef.current = isMuted;
+  }, [isMuted]);
 
   const getAudioContext = useCallback(() => {
     if (!audioContextRef.current) {
@@ -49,7 +56,7 @@ export const useSoundEffects = () => {
   }, []);
 
   const playMusicNote = useCallback(() => {
-    if (isMuted || !isMusicPlayingRef.current) return;
+    if (isMutedRef.current || !isMusicPlayingRef.current) return;
     
     try {
       const ctx = getAudioContext();
@@ -62,7 +69,7 @@ export const useSoundEffects = () => {
         oscillator.type = 'square';
         oscillator.frequency.setValueAtTime(note.freq, ctx.currentTime);
         
-        gainNode.gain.setValueAtTime(0.08, ctx.currentTime);
+        gainNode.gain.setValueAtTime(0.072, ctx.currentTime); // 10% lower (was 0.08)
         gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + note.dur * 0.9);
         
         oscillator.connect(gainNode);
@@ -76,7 +83,7 @@ export const useSoundEffects = () => {
     } catch (error) {
       console.log('Music playback failed:', error);
     }
-  }, [getAudioContext, isMuted]);
+  }, [getAudioContext]);
 
   const startMusic = useCallback(() => {
     if (musicIntervalRef.current) return;
@@ -107,6 +114,27 @@ export const useSoundEffects = () => {
     setIsMuted(prev => !prev);
   }, []);
 
+  // Auto-mute on visibility change (switching apps/windows)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        wasMusicPlayingRef.current = isMusicPlayingRef.current;
+        if (isMusicPlayingRef.current) {
+          stopMusic();
+        }
+      } else {
+        if (wasMusicPlayingRef.current && !isMutedRef.current) {
+          startMusic();
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [stopMusic, startMusic]);
+
   // Cleanup on unmount and page close
   useEffect(() => {
     const handleBeforeUnload = () => {
@@ -128,14 +156,14 @@ export const useSoundEffects = () => {
   }, [stopMusic]);
 
   const playSound = useCallback((type: SoundType) => {
-    if (isMuted) return;
+    if (isMutedRef.current) return;
     
     try {
       const ctx = getAudioContext();
       
       switch (type) {
         case 'hop': {
-          const { oscillator } = createOscillator(ctx, 400, 'square', 0.1, 0.2);
+          const { oscillator } = createOscillator(ctx, 400, 'square', 0.1, 0.18); // 10% lower (was 0.2)
           oscillator.frequency.setValueAtTime(400, ctx.currentTime);
           oscillator.frequency.setValueAtTime(600, ctx.currentTime + 0.05);
           oscillator.start(ctx.currentTime);
@@ -143,14 +171,14 @@ export const useSoundEffects = () => {
           break;
         }
         case 'splash': {
-          const { oscillator } = createOscillator(ctx, 200, 'sawtooth', 0.3, 0.3);
+          const { oscillator } = createOscillator(ctx, 200, 'sawtooth', 0.3, 0.27); // 10% lower (was 0.3)
           oscillator.frequency.exponentialRampToValueAtTime(50, ctx.currentTime + 0.3);
           oscillator.start(ctx.currentTime);
           oscillator.stop(ctx.currentTime + 0.3);
           break;
         }
         case 'crash': {
-          const { oscillator } = createOscillator(ctx, 150, 'sawtooth', 0.4, 0.4);
+          const { oscillator } = createOscillator(ctx, 150, 'sawtooth', 0.4, 0.36); // 10% lower (was 0.4)
           oscillator.frequency.exponentialRampToValueAtTime(30, ctx.currentTime + 0.4);
           oscillator.start(ctx.currentTime);
           oscillator.stop(ctx.currentTime + 0.4);
@@ -159,7 +187,7 @@ export const useSoundEffects = () => {
         case 'victory': {
           const notes = [523, 659, 784, 1047];
           notes.forEach((freq, i) => {
-            const { oscillator } = createOscillator(ctx, freq, 'square', 0.15, 0.2);
+            const { oscillator } = createOscillator(ctx, freq, 'square', 0.15, 0.18); // 10% lower (was 0.2)
             oscillator.start(ctx.currentTime + i * 0.1);
             oscillator.stop(ctx.currentTime + i * 0.1 + 0.15);
           });
@@ -168,7 +196,7 @@ export const useSoundEffects = () => {
         case 'gameover': {
           const notes = [392, 349, 330, 262];
           notes.forEach((freq, i) => {
-            const { oscillator } = createOscillator(ctx, freq, 'square', 0.3, 0.25);
+            const { oscillator } = createOscillator(ctx, freq, 'square', 0.3, 0.225); // 10% lower (was 0.25)
             oscillator.start(ctx.currentTime + i * 0.25);
             oscillator.stop(ctx.currentTime + i * 0.25 + 0.3);
           });
@@ -177,21 +205,21 @@ export const useSoundEffects = () => {
         case 'levelup': {
           const notes = [262, 330, 392, 523, 659, 784];
           notes.forEach((freq, i) => {
-            const { oscillator } = createOscillator(ctx, freq, 'triangle', 0.12, 0.2);
+            const { oscillator } = createOscillator(ctx, freq, 'triangle', 0.12, 0.18); // 10% lower (was 0.2)
             oscillator.start(ctx.currentTime + i * 0.08);
             oscillator.stop(ctx.currentTime + i * 0.08 + 0.12);
           });
           break;
         }
         case 'dive': {
-          const { oscillator } = createOscillator(ctx, 120, 'sine', 0.25, 0.15);
+          const { oscillator } = createOscillator(ctx, 120, 'sine', 0.25, 0.135); // 10% lower (was 0.15)
           oscillator.frequency.exponentialRampToValueAtTime(60, ctx.currentTime + 0.25);
           oscillator.start(ctx.currentTime);
           oscillator.stop(ctx.currentTime + 0.25);
           break;
         }
         case 'surface': {
-          const { oscillator } = createOscillator(ctx, 80, 'sine', 0.15, 0.12);
+          const { oscillator } = createOscillator(ctx, 80, 'sine', 0.15, 0.108); // 10% lower (was 0.12)
           oscillator.frequency.exponentialRampToValueAtTime(200, ctx.currentTime + 0.1);
           oscillator.start(ctx.currentTime);
           oscillator.stop(ctx.currentTime + 0.15);
@@ -201,7 +229,7 @@ export const useSoundEffects = () => {
     } catch (error) {
       console.log('Sound playback failed:', error);
     }
-  }, [getAudioContext, isMuted]);
+  }, [getAudioContext]);
 
   return { playSound, isMuted, toggleMute, startMusic, stopMusic };
 };
