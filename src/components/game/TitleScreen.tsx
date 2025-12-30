@@ -1,21 +1,24 @@
 import { motion } from 'framer-motion';
+import { HighScore } from '@/lib/gameTypes';
 
 interface TitleScreenProps {
   onStart: () => void;
-  onHighScores: () => void;
+  highScores: HighScore[];
 }
 
-export const TitleScreen = ({ onStart, onHighScores }: TitleScreenProps) => {
+export const TitleScreen = ({ onStart, highScores }: TitleScreenProps) => {
+  const displayScores = highScores.slice(0, 5);
+
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-emerald-900 via-emerald-800 to-cyan-900 p-4">
+    <div className="flex flex-col items-center justify-start min-h-screen bg-gradient-to-b from-emerald-900 via-emerald-800 to-cyan-900 p-4 pt-8">
       {/* Pixel Art Frog */}
       <motion.div 
-        className="mb-6"
+        className="mb-4"
         initial={{ scale: 0 }}
         animate={{ scale: 1 }}
         transition={{ type: 'spring', duration: 0.8 }}
       >
-        <svg viewBox="0 0 64 64" className="w-32 h-32" style={{ imageRendering: 'pixelated' }}>
+        <svg viewBox="0 0 64 64" className="w-24 h-24" style={{ imageRendering: 'pixelated' }}>
           {/* Body */}
           <rect x="20" y="28" width="24" height="20" fill="#4ade80" />
           <rect x="16" y="32" width="4" height="12" fill="#4ade80" />
@@ -41,7 +44,7 @@ export const TitleScreen = ({ onStart, onHighScores }: TitleScreenProps) => {
 
       {/* Title - Pixel Font */}
       <motion.h1 
-        className="text-4xl md:text-5xl text-lime-300 mb-2"
+        className="text-3xl md:text-4xl text-lime-300 mb-1"
         style={{ 
           fontFamily: '"Press Start 2P", monospace',
           textShadow: '3px 3px 0 #166534, 6px 6px 0 #14532d',
@@ -55,7 +58,7 @@ export const TitleScreen = ({ onStart, onHighScores }: TitleScreenProps) => {
       </motion.h1>
 
       <motion.p
-        className="text-lime-200 text-xs mb-8 opacity-75"
+        className="text-lime-200 text-xs mb-6 opacity-75"
         style={{ fontFamily: '"Press Start 2P", monospace' }}
         initial={{ opacity: 0 }}
         animate={{ opacity: 0.75 }}
@@ -64,16 +67,16 @@ export const TitleScreen = ({ onStart, onHighScores }: TitleScreenProps) => {
         A FROGGER ADVENTURE
       </motion.p>
 
-      {/* Buttons - Pixel Style */}
+      {/* Start Button - Pixel Style */}
       <motion.div 
-        className="flex flex-col gap-4 w-full max-w-xs"
+        className="w-full max-w-xs mb-4"
         initial={{ y: 50, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.5, duration: 0.5 }}
       >
         <button
           onClick={onStart}
-          className="px-6 py-4 bg-lime-500 hover:bg-lime-400 text-emerald-900 text-sm rounded-none shadow-lg transform hover:scale-105 transition-all border-4 border-lime-700 active:translate-y-1"
+          className="w-full px-6 py-4 bg-lime-500 hover:bg-lime-400 text-emerald-900 text-sm rounded-none shadow-lg transform hover:scale-105 transition-all border-4 border-lime-700 active:translate-y-1"
           style={{ 
             fontFamily: '"Press Start 2P", monospace',
             boxShadow: '4px 4px 0 #166534'
@@ -81,22 +84,66 @@ export const TitleScreen = ({ onStart, onHighScores }: TitleScreenProps) => {
         >
           START GAME
         </button>
+      </motion.div>
 
-        <button
-          onClick={onHighScores}
-          className="px-6 py-3 bg-amber-500 hover:bg-amber-400 text-amber-900 text-xs rounded-none shadow-lg transform hover:scale-105 transition-all border-4 border-amber-700 active:translate-y-1"
+      {/* High Scores Pixel Frame */}
+      <motion.div
+        className="w-full max-w-xs mb-6"
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: 0.7, duration: 0.4 }}
+      >
+        <div 
+          className="bg-emerald-950/80 border-4 border-lime-600 p-3"
           style={{ 
-            fontFamily: '"Press Start 2P", monospace',
-            boxShadow: '4px 4px 0 #92400e'
+            boxShadow: '4px 4px 0 #14532d, inset 2px 2px 0 #4ade80',
+            imageRendering: 'pixelated'
           }}
         >
-          HIGH SCORES
-        </button>
+          {/* Frame Header */}
+          <div 
+            className="text-center text-amber-400 text-xs mb-2 pb-2 border-b-2 border-lime-700"
+            style={{ fontFamily: '"Press Start 2P", monospace' }}
+          >
+            HIGH SCORES
+          </div>
+
+          {/* Scores List */}
+          <div className="space-y-1">
+            {displayScores.length === 0 ? (
+              <div 
+                className="text-center text-lime-400/50 text-[8px] py-2"
+                style={{ fontFamily: '"Press Start 2P", monospace' }}
+              >
+                NO SCORES YET!
+              </div>
+            ) : (
+              displayScores.map((score, index) => (
+                <div 
+                  key={index}
+                  className="flex justify-between items-center text-[10px]"
+                  style={{ fontFamily: '"Press Start 2P", monospace' }}
+                >
+                  <span className={`${
+                    index === 0 ? 'text-amber-400' : 
+                    index === 1 ? 'text-gray-300' : 
+                    index === 2 ? 'text-orange-400' : 
+                    'text-lime-400'
+                  }`}>
+                    {index === 0 ? '1.' : index === 1 ? '2.' : index === 2 ? '3.' : `${index + 1}.`}
+                  </span>
+                  <span className="text-white flex-1 ml-2">{score.initials}</span>
+                  <span className="text-amber-300">{score.score.toLocaleString()}</span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
       </motion.div>
 
       {/* Controls hint - Pixel Font */}
       <motion.div 
-        className="mt-12 text-lime-200/60 text-center"
+        className="text-lime-200/60 text-center"
         style={{ fontFamily: '"Press Start 2P", monospace' }}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
