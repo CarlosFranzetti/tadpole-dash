@@ -53,3 +53,18 @@ export interface HighScore {
 export type GameState = 'title' | 'playing' | 'gameover' | 'highscores' | 'entering-initials';
 
 export type SwipeDirection = 'up' | 'down' | 'left' | 'right' | null;
+
+export interface DeathEffect {
+  x: number;
+  y: number;
+  type: 'splash' | 'crash';
+  frame: number;
+  particles: Array<{
+    x: number;
+    y: number;
+    vx: number;
+    vy: number;
+    size: number;
+    color: string;
+  }>;
+}

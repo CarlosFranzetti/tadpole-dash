@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Player, Lane, HomeSpot, PowerUp } from '@/lib/gameTypes';
+import { Player, Lane, HomeSpot, PowerUp, DeathEffect } from '@/lib/gameTypes';
 import { GAME_WIDTH, GAME_HEIGHT, TILE_SIZE, PLAYER_SIZE, COLORS } from '@/lib/gameConstants';
 
 interface GameCanvasProps {
@@ -9,12 +9,22 @@ interface GameCanvasProps {
   level: number;
   powerUp?: PowerUp | null;
   isInvincible?: boolean;
+  deathEffect?: DeathEffect | null;
 }
 
 // Smaller frog size (12% reduction)
 const FROG_SCALE = 0.88;
 const FROG_SIZE = PLAYER_SIZE * FROG_SCALE;
 const FROG_OFFSET = (PLAYER_SIZE - FROG_SIZE) / 2;
+
+// Lily pad colors for each slot
+const LILYPAD_COLORS = [
+  { base: '#2d8a2d', highlight: '#3da33d', texture: '#2d7a2d' },
+  { base: '#1e7a4a', highlight: '#2d9a5a', texture: '#1a6a3a' },
+  { base: '#3d7a1e', highlight: '#4d9a2e', texture: '#2d6a1a' },
+  { base: '#2a6a5a', highlight: '#3a8a6a', texture: '#1a5a4a' },
+  { base: '#4a7a2a', highlight: '#5a9a3a', texture: '#3a6a1a' },
+];
 
 // Water sparkle state
 interface Sparkle {
@@ -24,10 +34,11 @@ interface Sparkle {
   maxLife: number;
 }
 
-export const GameCanvas = ({ player, lanes, homeSpots, level, powerUp, isInvincible }: GameCanvasProps) => {
+export const GameCanvas = ({ player, lanes, homeSpots, level, powerUp, isInvincible, deathEffect }: GameCanvasProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sparklesRef = useRef<Sparkle[]>([]);
   const frameCountRef = useRef(0);
+  const deathFrameRef = useRef(0);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -125,41 +136,64 @@ export const GameCanvas = ({ player, lanes, homeSpots, level, powerUp, isInvinci
     });
     ctx.globalAlpha = 1.0;
 
-    // Draw home spots (lily pads)
-    homeSpots.forEach(spot => {
+    // Draw home spots (lily pads) - larger and more detailed with varying colors
+    homeSpots.forEach((spot, index) => {
       const centerX = spot.x + 20;
       const centerY = 20;
+      const colors = LILYPAD_COLORS[index % LILYPAD_COLORS.length];
+      const padW = 38; // Larger width
+      const padH = 30; // Larger height
       
       if (spot.filled) {
         // Filled lily pad with frog
         // Pad base
-        ctx.fillStyle = '#2d8a2d';
-        ctx.fillRect(centerX - 16, centerY - 12, 32, 24);
-        // Pad details (V notch)
-        ctx.fillStyle = COLORS.water;
-        ctx.fillRect(centerX - 2, centerY - 12, 4, 8);
-        // Pad highlights
-        ctx.fillStyle = '#3da33d';
-        ctx.fillRect(centerX - 12, centerY - 8, 8, 4);
-        ctx.fillRect(centerX + 4, centerY - 8, 8, 4);
-        // Mini frog
-        ctx.fillStyle = COLORS.player;
-        ctx.fillRect(centerX - 6, centerY - 4, 12, 10);
-        ctx.fillStyle = '#5a9e45';
-        ctx.fillRect(centerX - 4, centerY - 6, 3, 3);
-        ctx.fillRect(centerX + 1, centerY - 6, 3, 3);
-      } else {
-        // Empty lily pad
-        ctx.fillStyle = COLORS.home;
-        ctx.fillRect(centerX - 16, centerY - 12, 32, 24);
+        ctx.fillStyle = colors.base;
+        ctx.fillRect(centerX - padW / 2, centerY - padH / 2, padW, padH);
+        // Outer rim highlight
+        ctx.fillStyle = colors.highlight;
+        ctx.fillRect(centerX - padW / 2 + 2, centerY - padH / 2, padW - 4, 3);
         // V notch
         ctx.fillStyle = COLORS.water;
-        ctx.fillRect(centerX - 2, centerY - 12, 4, 8);
-        // Pad texture
-        ctx.fillStyle = '#2d7a2d';
-        ctx.fillRect(centerX - 12, centerY - 6, 6, 3);
-        ctx.fillRect(centerX + 6, centerY - 6, 6, 3);
-        ctx.fillRect(centerX - 8, centerY + 2, 16, 2);
+        ctx.fillRect(centerX - 3, centerY - padH / 2, 6, 10);
+        // Vein lines
+        ctx.fillStyle = colors.texture;
+        ctx.fillRect(centerX - 14, centerY - 4, 10, 2);
+        ctx.fillRect(centerX + 4, centerY - 4, 10, 2);
+        ctx.fillRect(centerX - 10, centerY + 4, 8, 2);
+        ctx.fillRect(centerX + 2, centerY + 4, 8, 2);
+        // Mini frog sitting on pad
+        ctx.fillStyle = COLORS.player;
+        ctx.fillRect(centerX - 7, centerY - 5, 14, 12);
+        ctx.fillStyle = '#5a9e45';
+        ctx.fillRect(centerX - 5, centerY - 7, 4, 4);
+        ctx.fillRect(centerX + 1, centerY - 7, 4, 4);
+        // Frog eyes
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(centerX - 4, centerY - 6, 2, 2);
+        ctx.fillRect(centerX + 2, centerY - 6, 2, 2);
+      } else {
+        // Empty lily pad
+        ctx.fillStyle = colors.base;
+        ctx.fillRect(centerX - padW / 2, centerY - padH / 2, padW, padH);
+        // Outer rim highlight
+        ctx.fillStyle = colors.highlight;
+        ctx.fillRect(centerX - padW / 2 + 2, centerY - padH / 2, padW - 4, 3);
+        ctx.fillRect(centerX - padW / 2, centerY - padH / 2 + 3, 3, padH - 6);
+        // V notch
+        ctx.fillStyle = COLORS.water;
+        ctx.fillRect(centerX - 3, centerY - padH / 2, 6, 10);
+        // Vein pattern
+        ctx.fillStyle = colors.texture;
+        ctx.fillRect(centerX - 14, centerY - 4, 10, 2);
+        ctx.fillRect(centerX + 4, centerY - 4, 10, 2);
+        ctx.fillRect(centerX - 10, centerY + 4, 8, 2);
+        ctx.fillRect(centerX + 2, centerY + 4, 8, 2);
+        // Center vein
+        ctx.fillRect(centerX - 1, centerY - 2, 2, 10);
+        // Small water droplets on pad
+        ctx.fillStyle = '#4fc3f7';
+        ctx.fillRect(centerX - 8, centerY + 6, 2, 2);
+        ctx.fillRect(centerX + 10, centerY - 2, 2, 2);
       }
     });
 
@@ -651,7 +685,79 @@ export const GameCanvas = ({ player, lanes, homeSpots, level, powerUp, isInvinci
 
     ctx.restore();
 
-  }, [player, lanes, homeSpots, level, powerUp, isInvincible]);
+    // Draw death effect
+    if (deathEffect) {
+      deathFrameRef.current++;
+      const dFrame = deathFrameRef.current;
+      
+      if (deathEffect.type === 'splash') {
+        // Water splash particles
+        deathEffect.particles.forEach((p, i) => {
+          const age = dFrame * 0.15;
+          const px = p.x + p.vx * age;
+          const py = p.y + p.vy * age + age * age * 0.3; // Gravity
+          const alpha = Math.max(0, 1 - age / 8);
+          const size = p.size * (1 - age / 12);
+          
+          if (alpha > 0 && size > 0) {
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = p.color;
+            ctx.fillRect(Math.floor(px), Math.floor(py), Math.floor(size), Math.floor(size));
+          }
+        });
+        
+        // Splash ripple rings
+        const rippleAge = dFrame * 0.1;
+        if (rippleAge < 3) {
+          ctx.globalAlpha = 0.6 - rippleAge * 0.2;
+          ctx.strokeStyle = '#4fc3f7';
+          ctx.lineWidth = 2;
+          const cx = deathEffect.x + PLAYER_SIZE / 2;
+          const cy = deathEffect.y + PLAYER_SIZE / 2;
+          // Pixel ripple (square)
+          const rippleSize = 10 + rippleAge * 15;
+          ctx.strokeRect(cx - rippleSize, cy - rippleSize / 2, rippleSize * 2, rippleSize);
+        }
+      } else {
+        // Car crash - squished frog and blood splat
+        const age = dFrame * 0.12;
+        const cx = deathEffect.x + PLAYER_SIZE / 2;
+        const cy = deathEffect.y + PLAYER_SIZE / 2;
+        
+        // Blood splat particles
+        deathEffect.particles.forEach((p) => {
+          const px = p.x + p.vx * age;
+          const py = p.y + p.vy * age;
+          const alpha = Math.max(0, 1 - age / 10);
+          
+          if (alpha > 0) {
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = p.color;
+            ctx.fillRect(Math.floor(px), Math.floor(py), Math.floor(p.size), Math.floor(p.size));
+          }
+        });
+        
+        // Squished frog (flattened)
+        if (age < 6) {
+          ctx.globalAlpha = Math.max(0, 1 - age / 6);
+          // Flat red/green splat
+          ctx.fillStyle = '#8b0000';
+          ctx.fillRect(cx - 14, cy - 4, 28, 8);
+          ctx.fillStyle = '#556b2f';
+          ctx.fillRect(cx - 10, cy - 2, 20, 4);
+          // Eyes (Xs)
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(cx - 8, cy - 2, 4, 2);
+          ctx.fillRect(cx + 4, cy - 2, 4, 2);
+        }
+      }
+      
+      ctx.globalAlpha = 1.0;
+    } else {
+      deathFrameRef.current = 0;
+    }
+
+  }, [player, lanes, homeSpots, level, powerUp, isInvincible, deathEffect]);
 
   return (
     <canvas

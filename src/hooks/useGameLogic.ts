@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Player, Lane, GameObject, HomeSpot, SwipeDirection, PowerUp } from '@/lib/gameTypes';
+import { Player, Lane, GameObject, HomeSpot, SwipeDirection, PowerUp, DeathEffect } from '@/lib/gameTypes';
 import { 
   GAME_WIDTH, 
   TILE_SIZE, 
@@ -257,6 +257,7 @@ export const useGameLogic = () => {
   const [highestRow, setHighestRow] = useState(START_ROW);
   const [powerUp, setPowerUp] = useState<PowerUp | null>(null);
   const [isInvincible, setIsInvincible] = useState(false);
+  const [deathEffect, setDeathEffect] = useState<DeathEffect | null>(null);
   const invincibleTimerRef = useRef<number | null>(null);
   const animationRef = useRef<number>();
   const lastTimeRef = useRef<number>(0);
@@ -314,10 +315,57 @@ export const useGameLogic = () => {
     initializeLanes(1);
   }, [initializeLanes]);
 
+  const createDeathParticles = useCallback((x: number, y: number, type: 'splash' | 'crash') => {
+    const particles = [];
+    const count = type === 'splash' ? 12 : 8;
+    
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 * i) / count + Math.random() * 0.5;
+      const speed = 2 + Math.random() * 3;
+      
+      if (type === 'splash') {
+        // Blue water particles
+        particles.push({
+          x: x + PLAYER_SIZE / 2,
+          y: y + PLAYER_SIZE / 2,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed - 2, // Upward bias
+          size: 3 + Math.random() * 3,
+          color: ['#4fc3f7', '#29b6f6', '#03a9f4', '#81d4fa'][Math.floor(Math.random() * 4)],
+        });
+      } else {
+        // Red blood/splat particles
+        particles.push({
+          x: x + PLAYER_SIZE / 2,
+          y: y + PLAYER_SIZE / 2,
+          vx: Math.cos(angle) * speed * 0.8,
+          vy: Math.sin(angle) * speed * 0.5,
+          size: 2 + Math.random() * 4,
+          color: ['#c62828', '#d32f2f', '#e53935', '#8b0000'][Math.floor(Math.random() * 4)],
+        });
+      }
+    }
+    
+    return particles;
+  }, []);
+
   const handleDeath = useCallback((type: 'splash' | 'crash') => {
     if (isInvincible) return; // Invincibility protects from death
 
     playSound(type);
+    
+    // Create death effect at current position
+    setDeathEffect({
+      x: playerRef.current.x,
+      y: playerRef.current.y,
+      type,
+      frame: 0,
+      particles: createDeathParticles(playerRef.current.x, playerRef.current.y, type),
+    });
+    
+    // Clear effect after animation
+    setTimeout(() => setDeathEffect(null), 800);
+    
     setPlayer(prev => {
       const newLives = prev.lives - 1;
       if (newLives <= 0) {
@@ -336,7 +384,7 @@ export const useGameLogic = () => {
       };
     });
     setHighestRow(START_ROW);
-  }, [playSound, isInvincible]);
+  }, [playSound, isInvincible, createDeathParticles]);
 
   const collectPowerUp = useCallback(() => {
     if (!powerUp || powerUp.collected) return;
@@ -660,6 +708,7 @@ export const useGameLogic = () => {
     isGameOver,
     powerUp,
     isInvincible,
+    deathEffect,
     startGame,
     movePlayer,
   };
