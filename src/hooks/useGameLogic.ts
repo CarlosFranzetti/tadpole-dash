@@ -261,9 +261,8 @@ export const useGameLogic = () => {
       targetY: STARTING_Y,
       isMoving: false,
     }));
-    setHighestRow(12);
+    setHighestRow(START_ROW);
   }, []);
-
   const startGame = useCallback(() => {
     setLevel(1);
     setPlayer({
@@ -276,7 +275,7 @@ export const useGameLogic = () => {
       targetY: STARTING_Y,
     });
     setHomeSpots(HOME_SPOTS.map(h => ({ ...h })));
-    setHighestRow(12);
+    setHighestRow(START_ROW);
     setIsGameOver(false);
     setIsInvincible(false);
     if (invincibleTimerRef.current) {
@@ -287,7 +286,7 @@ export const useGameLogic = () => {
 
   const handleDeath = useCallback((type: 'splash' | 'crash') => {
     if (isInvincible) return; // Invincibility protects from death
-    
+
     playSound(type);
     setPlayer(prev => {
       const newLives = prev.lives - 1;
@@ -306,7 +305,7 @@ export const useGameLogic = () => {
         isMoving: false,
       };
     });
-    setHighestRow(12);
+    setHighestRow(START_ROW);
   }, [playSound, isInvincible]);
 
   const collectPowerUp = useCallback(() => {
@@ -352,7 +351,7 @@ export const useGameLogic = () => {
         targetY: STARTING_Y,
         isMoving: false,
       }));
-      setHighestRow(12);
+      setHighestRow(START_ROW);
       setPowerUp(createPowerUp()); // Chance for new power-up
       return true;
     }
@@ -416,7 +415,7 @@ export const useGameLogic = () => {
       }));
       setLevel(prev => prev + 1);
       setHomeSpots(HOME_SPOTS.map(h => ({ ...h })));
-      setHighestRow(12);
+      setHighestRow(START_ROW);
       resetPlayer();
       initializeLanes(level + 1);
     }
@@ -435,114 +434,143 @@ export const useGameLogic = () => {
         return;
       }
 
-      // Update lane objects with progressive speed based on player position
-      setPlayer(currentPlayer => {
-        const playerRow = Math.floor(currentPlayer.y / TILE_SIZE);
-        const progressToGoal = Math.max(0, Math.min(1, (12 - playerRow) / 12));
-        // Base progressive speed + 3% global speed boost for smoother feel
-        const progressiveSpeedMultiplier = (0.3 + (progressToGoal * 0.7)) * 1.03;
+      const currentPlayer = playerRef.current;
+      const playerRow = Math.floor(currentPlayer.y / TILE_SIZE);
+      const progressToGoal = Math.max(0, Math.min(1, (START_ROW - playerRow) / START_ROW));
 
-        setLanes(prevLanes => prevLanes.map(lane => {
-          if (lane.type === 'safe' || lane.type === 'home') return lane;
+      // Base progressive speed + 3% global speed boost for smoother feel
+      const progressiveSpeedMultiplier = (0.3 + progressToGoal * 0.7) * 1.03;
 
-          const isRoadLane = lane.type === 'road';
+      // --- Update lanes (no nested setState)
+      const laneGap = (laneType: Lane['type']) => {
+        if (laneType === 'road') return level === 1 ? TILE_SIZE * 2 : TILE_SIZE;
+        if (laneType === 'water') return level === 1 ? TILE_SIZE : Math.round(TILE_SIZE * 0.8);
+        return 0;
+      };
 
-          // Keep wrap spacing consistent with spawn spacing (prevents overlaps)
-          const baseSpacing = isRoadLane ? (level === 1 ? 420 : 300) : 180;
-          const spacingReduction = isRoadLane ? Math.min((level - 1) * 30, 110) : Math.min((level - 1) * 15, 40);
-          const maxVehicleWidth = level <= 2 ? 80 : 120;
-          const minRoadGap = level === 1 ? TILE_SIZE * 2 : TILE_SIZE;
-          const minRoadSpacing = maxVehicleWidth + minRoadGap;
-          const minWaterSpacing = 140;
+      const wrapBuffer = 80;
 
-          const spacing = isRoadLane
-            ? Math.max(baseSpacing - spacingReduction, minRoadSpacing)
-            : Math.max(baseSpacing - spacingReduction, minWaterSpacing);
+      const nextLanes: Lane[] = lanesRef.current.map(lane => {
+        if (lane.type === 'safe' || lane.type === 'home') return lane;
 
-          const wrapBuffer = 60;
+        const moved = lane.objects.map(obj => {
+          const dx = obj.speed * obj.direction * progressiveSpeedMultiplier * (deltaTime / 16);
+          const x = obj.x + dx;
 
-          const moved = lane.objects.map((obj, index) => {
-            const dx = obj.speed * obj.direction * progressiveSpeedMultiplier * (deltaTime / 16);
-            let newX = obj.x + dx;
+          const wrappedRight = obj.direction === 1 && x > GAME_WIDTH + wrapBuffer;
+          const wrappedLeft = obj.direction === -1 && x < -obj.width - wrapBuffer;
 
-            const wrappedRight = obj.direction === 1 && newX > GAME_WIDTH + wrapBuffer;
-            const wrappedLeft = obj.direction === -1 && newX < -obj.width - wrapBuffer;
+          let nextObj: GameObject = { ...obj, x };
 
-            // Handle diving turtles with phases
-            let nextObj: GameObject = { ...obj, x: newX };
-            if (obj.type === 'turtle' && obj.diveTimer !== undefined && obj.divePhase) {
-              let newDiveTimer = obj.diveTimer - deltaTime;
-              let newDivePhase = obj.divePhase;
+          // Handle diving turtles with phases
+          if (obj.type === 'turtle' && obj.diveTimer !== undefined && obj.divePhase) {
+            let newDiveTimer = obj.diveTimer - deltaTime;
+            let newDivePhase = obj.divePhase;
 
-              if (newDiveTimer <= 0) {
-                const phaseConfig = DIVE_PHASES[obj.divePhase];
-                newDivePhase = phaseConfig.next;
-                // Only surface phase gets extra jitter so they don't sync
-                newDiveTimer = DIVE_PHASES[newDivePhase].duration + (newDivePhase === 'surface' ? Math.random() * 2000 : 0);
-              }
-
-              nextObj = {
-                ...nextObj,
-                diveTimer: newDiveTimer,
-                divePhase: newDivePhase,
-                isDiving: newDivePhase === 'submerged',
-              };
+            if (newDiveTimer <= 0) {
+              const phaseConfig = DIVE_PHASES[obj.divePhase];
+              newDivePhase = phaseConfig.next;
+              // Only surface phase gets extra jitter so they don't sync
+              newDiveTimer = DIVE_PHASES[newDivePhase].duration + (newDivePhase === 'surface' ? Math.random() * 2000 : 0);
             }
 
-            return {
-              index,
-              wrapped: wrappedRight || wrappedLeft,
-              wrappedDir: wrappedRight ? 1 : wrappedLeft ? -1 : 0,
-              obj: nextObj,
+            nextObj = {
+              ...nextObj,
+              diveTimer: newDiveTimer,
+              divePhase: newDivePhase,
+              isDiving: newDivePhase === 'submerged',
             };
-          });
-
-          // Fix overlaps on wrap: place wrapped objects behind the pack by `spacing`
-          if (moved.some(m => m.wrapped)) {
-            if (lane.direction === 1) {
-              const nonWrapped = moved.filter(m => !m.wrapped).map(m => m.obj.x);
-              let insertX = nonWrapped.length ? Math.min(...nonWrapped) : -wrapBuffer;
-              const wrapped = moved.filter(m => m.wrapped).sort((a, b) => a.index - b.index);
-              for (const w of wrapped) {
-                insertX -= spacing;
-                w.obj = { ...w.obj, x: insertX };
-              }
-            } else {
-              const nonWrapped = moved.filter(m => !m.wrapped).map(m => m.obj.x);
-              let insertX = nonWrapped.length ? Math.max(...nonWrapped) : GAME_WIDTH + wrapBuffer;
-              const wrapped = moved.filter(m => m.wrapped).sort((a, b) => a.index - b.index);
-              for (const w of wrapped) {
-                insertX += spacing;
-                w.obj = { ...w.obj, x: insertX };
-              }
-            }
           }
 
-          const updatedObjects = moved.map(m => m.obj);
-          return { ...lane, objects: updatedObjects };
-        }));
+          return { obj: nextObj, wrapped: wrappedRight || wrappedLeft };
+        });
 
-        return currentPlayer;
+        // Re-insert wrapped objects behind the pack with a fixed gap (works even with variable log lengths)
+        if (moved.some(m => m.wrapped)) {
+          const gap = laneGap(lane.type);
+          const nonWrappedXs = moved.filter(m => !m.wrapped).map(m => m.obj.x);
+
+          if (lane.direction === 1) {
+            let insertX = nonWrappedXs.length ? Math.min(...nonWrappedXs) : -wrapBuffer;
+            const wrapped = moved.filter(m => m.wrapped);
+            for (const w of wrapped) {
+              insertX -= w.obj.width + gap;
+              w.obj = { ...w.obj, x: insertX };
+            }
+          } else {
+            let insertX = nonWrappedXs.length ? Math.max(...nonWrappedXs) : GAME_WIDTH + wrapBuffer;
+            const wrapped = moved.filter(m => m.wrapped);
+            for (const w of wrapped) {
+              insertX += gap + w.obj.width;
+              w.obj = { ...w.obj, x: insertX };
+            }
+          }
+        }
+
+        return { ...lane, objects: moved.map(m => m.obj) };
       });
 
-      // Update player position (smooth movement)
-      setPlayer(prev => {
-        if (!prev.isMoving) return prev;
+      lanesRef.current = nextLanes;
+      setLanes(nextLanes);
 
-        const dx = prev.targetX - prev.x;
-        const dy = prev.targetY - prev.y;
+      // --- Update player (movement + water support/carry)
+      let nextPlayer: Player = currentPlayer;
+
+      if (currentPlayer.isMoving) {
+        const dx = currentPlayer.targetX - currentPlayer.x;
+        const dy = currentPlayer.targetY - currentPlayer.y;
         const moveSpeed = 8;
 
         if (Math.abs(dx) < moveSpeed && Math.abs(dy) < moveSpeed) {
-          return { ...prev, x: prev.targetX, y: prev.targetY, isMoving: false };
+          nextPlayer = { ...currentPlayer, x: currentPlayer.targetX, y: currentPlayer.targetY, isMoving: false };
+        } else {
+          nextPlayer = {
+            ...currentPlayer,
+            x: currentPlayer.x + Math.sign(dx) * Math.min(Math.abs(dx), moveSpeed),
+            y: currentPlayer.y + Math.sign(dy) * Math.min(Math.abs(dy), moveSpeed),
+          };
         }
+      }
 
-        return {
-          ...prev,
-          x: prev.x + Math.sign(dx) * Math.min(Math.abs(dx), moveSpeed),
-          y: prev.y + Math.sign(dy) * Math.min(Math.abs(dy), moveSpeed),
-        };
-      });
+      // Water: die only in gaps (no platform support) and get carried when supported.
+      if (!nextPlayer.isMoving) {
+        const row = Math.floor(nextPlayer.y / TILE_SIZE);
+        const cfg = LANES_CONFIG[row];
+
+        if (cfg?.type === 'water') {
+          const lane = nextLanes.find(l => Math.floor(l.y / TILE_SIZE) === row);
+          if (lane) {
+            const support = getWaterSupport(nextPlayer, lane, level);
+            if (!support.supported) {
+              handleDeath('splash');
+              animationRef.current = requestAnimationFrame(gameLoop);
+              return;
+            }
+
+            const carryDx = support.carrySpeed * support.carryDir * progressiveSpeedMultiplier * (deltaTime / 16) * 0.5;
+            const carriedX = nextPlayer.x + carryDx;
+
+            if (carriedX < -PLAYER_SIZE || carriedX > GAME_WIDTH) {
+              handleDeath('splash');
+              animationRef.current = requestAnimationFrame(gameLoop);
+              return;
+            }
+
+            nextPlayer = { ...nextPlayer, x: carriedX, targetX: carriedX };
+          }
+        }
+      }
+
+      // Only commit when something actually changed
+      if (
+        nextPlayer.x !== currentPlayer.x ||
+        nextPlayer.y !== currentPlayer.y ||
+        nextPlayer.isMoving !== currentPlayer.isMoving ||
+        nextPlayer.targetX !== currentPlayer.targetX ||
+        nextPlayer.targetY !== currentPlayer.targetY
+      ) {
+        setPlayer(nextPlayer);
+      }
 
       animationRef.current = requestAnimationFrame(gameLoop);
     };
@@ -551,7 +579,7 @@ export const useGameLogic = () => {
     return () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
     };
-  }, [isGameOver, level]);
+  }, [isGameOver, level, handleDeath]);
 
   // Collision detection
   useEffect(() => {
