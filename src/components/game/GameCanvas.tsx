@@ -161,28 +161,38 @@ export const GameCanvas = ({ player, lanes, homeSpots, level }: GameCanvasProps)
           case 'turtle':
             const turtleCount = 3;
             const turtleSpacing = obj.width / turtleCount;
+            const isDiving = obj.isDiving || false;
+            
+            // Set opacity based on diving state
+            ctx.globalAlpha = isDiving ? 0.3 : 1.0;
+            
             for (let i = 0; i < turtleCount; i++) {
               const tx = x + i * turtleSpacing + 5;
               // Shell
-              ctx.fillStyle = COLORS.turtle;
+              ctx.fillStyle = isDiving ? '#2d5a5a' : COLORS.turtle;
               ctx.beginPath();
-              ctx.ellipse(tx + 12, y + h / 2, 12, 10, 0, 0, Math.PI * 2);
+              ctx.ellipse(tx + 12, y + h / 2 + (isDiving ? 4 : 0), 12, isDiving ? 8 : 10, 0, 0, Math.PI * 2);
               ctx.fill();
-              // Shell pattern
-              ctx.fillStyle = '#388e3c';
-              ctx.beginPath();
-              ctx.ellipse(tx + 12, y + h / 2, 8, 6, 0, 0, Math.PI * 2);
-              ctx.fill();
-              // Head
-              ctx.fillStyle = '#66bb6a';
-              ctx.fillRect(tx + 22, y + h / 2 - 4, 6, 8);
-              // Flippers
-              ctx.fillStyle = '#4caf50';
-              ctx.fillRect(tx + 4, y + 4, 6, 6);
-              ctx.fillRect(tx + 14, y + 4, 6, 6);
-              ctx.fillRect(tx + 4, y + h - 10, 6, 6);
-              ctx.fillRect(tx + 14, y + h - 10, 6, 6);
+              
+              if (!isDiving) {
+                // Shell pattern (only visible when not diving)
+                ctx.fillStyle = '#388e3c';
+                ctx.beginPath();
+                ctx.ellipse(tx + 12, y + h / 2, 8, 6, 0, 0, Math.PI * 2);
+                ctx.fill();
+                // Head
+                ctx.fillStyle = '#66bb6a';
+                ctx.fillRect(tx + 22, y + h / 2 - 4, 6, 8);
+                // Flippers
+                ctx.fillStyle = '#4caf50';
+                ctx.fillRect(tx + 4, y + 4, 6, 6);
+                ctx.fillRect(tx + 14, y + 4, 6, 6);
+                ctx.fillRect(tx + 4, y + h - 10, 6, 6);
+                ctx.fillRect(tx + 14, y + h - 10, 6, 6);
+              }
             }
+            
+            ctx.globalAlpha = 1.0;
             break;
         }
 

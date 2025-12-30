@@ -9,6 +9,8 @@ export interface GameObject extends Position {
   speed: number;
   direction: 1 | -1;
   type: string;
+  isDiving?: boolean;
+  diveTimer?: number;
 }
 
 export interface Lane {
