@@ -10,7 +10,6 @@ import { useGameLogic } from '@/hooks/useGameLogic';
 import { useSwipeControls } from '@/hooks/useSwipeControls';
 import { useHighScores } from '@/hooks/useHighScores';
 import { useSoundEffects } from '@/hooks/useSoundEffects';
-import { Volume2, VolumeX } from 'lucide-react';
 
 const Index = () => {
   const [gameState, setGameState] = useState<GameState>('title');
@@ -18,7 +17,7 @@ const Index = () => {
   const [shakeFrame, setShakeFrame] = useState(0);
   const { highScores, addHighScore, isHighScore } = useHighScores();
   const { player, lanes, homeSpots, level, isGameOver, powerUp, isInvincible, deathEffect, startGame, movePlayer } = useGameLogic();
-  const { isMuted, toggleMute, startMusic, stopMusic, playSound } = useSoundEffects();
+  const { startMusic, stopMusic, playSound } = useSoundEffects();
 
   const handleStartGame = useCallback(() => {
     setGameState('playing');
@@ -108,17 +107,8 @@ const Index = () => {
           <SwipeIndicator direction={lastSwipe} />
         </div>
       
-        {/* Mobile swipe hint and mute toggle */}
-        <div className="flex items-center justify-between w-full max-w-[360px] mt-4 px-2">
-          <p className="text-emerald-300/50" style={{ fontFamily: '"Press Start 2P", monospace', fontSize: '8px' }}>SWIPE TO MOVE</p>
-          <button 
-            onClick={toggleMute}
-            className="text-emerald-300/70 hover:text-emerald-300 transition-colors p-1"
-            style={{ fontFamily: '"Press Start 2P", monospace' }}
-          >
-            {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
-          </button>
-        </div>
+        {/* Mobile swipe hint */}
+        <p className="text-emerald-300/50 mt-4" style={{ fontFamily: '"Press Start 2P", monospace', fontSize: '8px' }}>SWIPE TO MOVE</p>
 
         {isGameOver && (
           <GameOverScreen
