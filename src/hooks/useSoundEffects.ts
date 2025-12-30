@@ -1,6 +1,6 @@
 import { useCallback, useRef } from 'react';
 
-type SoundType = 'hop' | 'splash' | 'crash' | 'victory' | 'gameover' | 'levelup';
+type SoundType = 'hop' | 'splash' | 'crash' | 'victory' | 'gameover' | 'levelup' | 'dive' | 'surface';
 
 const createOscillator = (
   audioContext: AudioContext,
@@ -86,6 +86,22 @@ export const useSoundEffects = () => {
             oscillator.start(ctx.currentTime + i * 0.08);
             oscillator.stop(ctx.currentTime + i * 0.08 + 0.12);
           });
+          break;
+        }
+        case 'dive': {
+          // Low bubbling sound for turtle diving
+          const { oscillator } = createOscillator(ctx, 120, 'sine', 0.25, 0.15);
+          oscillator.frequency.exponentialRampToValueAtTime(60, ctx.currentTime + 0.25);
+          oscillator.start(ctx.currentTime);
+          oscillator.stop(ctx.currentTime + 0.25);
+          break;
+        }
+        case 'surface': {
+          // Bubble pop for turtle surfacing
+          const { oscillator } = createOscillator(ctx, 80, 'sine', 0.15, 0.12);
+          oscillator.frequency.exponentialRampToValueAtTime(200, ctx.currentTime + 0.1);
+          oscillator.start(ctx.currentTime);
+          oscillator.stop(ctx.currentTime + 0.15);
           break;
         }
       }

@@ -37,7 +37,7 @@ export const SwipeIndicator = ({ direction }: SwipeIndicatorProps) => {
       {visible && (
         <motion.div
           key={key}
-          initial={{ opacity: 0.9, scale: 1, x: 0, y: 0 }}
+          initial={{ opacity: 0.1, scale: 1, x: 0, y: 0 }}
           animate={{ 
             opacity: 0, 
             scale: 1.5, 
@@ -48,8 +48,8 @@ export const SwipeIndicator = ({ direction }: SwipeIndicatorProps) => {
           transition={{ duration: 0.3, ease: 'easeOut' }}
           className="absolute inset-0 flex items-center justify-center pointer-events-none z-20"
         >
-          <div className="bg-emerald-400/40 rounded-full p-4">
-            <Icon className="w-12 h-12 text-emerald-200" strokeWidth={3} />
+          <div className="bg-emerald-400/10 rounded-full p-4">
+            <Icon className="w-12 h-12 text-emerald-200/10" strokeWidth={3} />
           </div>
         </motion.div>
       )}

@@ -26,6 +26,7 @@ const createLaneObjects = (laneConfig: typeof LANES_CONFIG[number], level: numbe
   const speedMultiplier = 1 + (level - 1) * 0.15;
 
   for (let i = 0; i < numObjects; i++) {
+    const isTurtle = laneConfig.objectType === 'turtle';
     objects.push({
       x: i * spacing - objectWidth,
       y: laneConfig.y * TILE_SIZE,
@@ -34,6 +35,8 @@ const createLaneObjects = (laneConfig: typeof LANES_CONFIG[number], level: numbe
       speed: (laneConfig.speed || 1) * speedMultiplier,
       direction: laneConfig.direction || 1,
       type: laneConfig.objectType,
+      isDiving: false,
+      diveTimer: isTurtle ? Math.random() * 3000 + 2000 : undefined, // Random initial dive timer
     });
   }
 
@@ -232,10 +235,21 @@ export const useGameLogic = () => {
       // Update lane objects with progressive speed based on player position
       setPlayer(currentPlayer => {
         const playerRow = Math.floor(currentPlayer.y / TILE_SIZE);
-        // Row 12 = start (slowest), Row 6 = middle (full speed)
-        // Speed ramps from 0.4x at row 12 to 1x at row 6 and beyond
-        const progressToMiddle = Math.max(0, Math.min(1, (12 - playerRow) / 6));
-        const progressiveSpeedMultiplier = 0.4 + (progressToMiddle * 0.6);
+        // Row 12 = start (0.2x), Row 6 = middle (1x)
+        // Speed ramps in 0.2x increments: 0.2, 0.4, 0.6, 0.8, 1.0
+        // Rows 12-11: 0.2x, Rows 10-9: 0.4x, Rows 8-7: 0.6x, Rows 6-5: 0.8x, Rows 4+: 1.0x
+        let progressiveSpeedMultiplier = 0.2;
+        if (playerRow <= 4) {
+          progressiveSpeedMultiplier = 1.0;
+        } else if (playerRow <= 6) {
+          progressiveSpeedMultiplier = 0.8;
+        } else if (playerRow <= 8) {
+          progressiveSpeedMultiplier = 0.6;
+        } else if (playerRow <= 10) {
+          progressiveSpeedMultiplier = 0.4;
+        } else {
+          progressiveSpeedMultiplier = 0.2;
+        }
 
         setLanes(prevLanes => prevLanes.map(lane => {
           if (lane.type === 'safe' || lane.type === 'home') return lane;
@@ -247,6 +261,20 @@ export const useGameLogic = () => {
               newX = -obj.width - 50;
             } else if (obj.direction === -1 && newX < -obj.width - 50) {
               newX = GAME_WIDTH + 50;
+            }
+
+            // Handle diving turtles
+            if (obj.type === 'turtle' && obj.diveTimer !== undefined) {
+              let newDiveTimer = obj.diveTimer - deltaTime;
+              let newIsDiving = obj.isDiving;
+
+              if (newDiveTimer <= 0) {
+                newIsDiving = !newIsDiving;
+                // Dive for 1.5s, surface for 3-5s
+                newDiveTimer = newIsDiving ? 1500 : 3000 + Math.random() * 2000;
+              }
+
+              return { ...obj, x: newX, diveTimer: newDiveTimer, isDiving: newIsDiving };
             }
 
             return { ...obj, x: newX };
@@ -317,13 +345,21 @@ export const useGameLogic = () => {
         }
       }
     } else if (lane.type === 'water') {
-      // Must be on a log/turtle
+      // Must be on a log/turtle (not diving)
       let onPlatform = false;
       let platformSpeed = 0;
       let platformDirection = 0;
 
       for (const obj of lane.objects) {
-        if (playerCenterX > obj.x && playerCenterX < obj.x + obj.width) {
+        const isOnObject = playerCenterX > obj.x && playerCenterX < obj.x + obj.width;
+        
+        if (isOnObject) {
+          // Check if turtle is diving
+          if (obj.type === 'turtle' && obj.isDiving) {
+            // Turtle is diving, player falls in water
+            handleDeath('splash');
+            return;
+          }
           onPlatform = true;
           platformSpeed = obj.speed;
           platformDirection = obj.direction;
