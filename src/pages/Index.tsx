@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { GameState, SwipeDirection } from '@/lib/gameTypes';
 import { TitleScreen } from '@/components/game/TitleScreen';
 import { GameCanvas } from '@/components/game/GameCanvas';
@@ -9,17 +9,42 @@ import { SwipeIndicator } from '@/components/game/SwipeIndicator';
 import { useGameLogic } from '@/hooks/useGameLogic';
 import { useSwipeControls } from '@/hooks/useSwipeControls';
 import { useHighScores } from '@/hooks/useHighScores';
+import { useSoundEffects } from '@/hooks/useSoundEffects';
+import { Volume2, VolumeX } from 'lucide-react';
 
 const Index = () => {
   const [gameState, setGameState] = useState<GameState>('title');
   const [lastSwipe, setLastSwipe] = useState<SwipeDirection>(null);
+  const [shakeFrame, setShakeFrame] = useState(0);
   const { highScores, addHighScore, isHighScore } = useHighScores();
   const { player, lanes, homeSpots, level, isGameOver, powerUp, isInvincible, deathEffect, startGame, movePlayer } = useGameLogic();
+  const { isMuted, toggleMute, startMusic, stopMusic, playSound } = useSoundEffects();
 
   const handleStartGame = useCallback(() => {
     setGameState('playing');
     startGame();
-  }, [startGame]);
+    startMusic();
+  }, [startGame, startMusic]);
+
+  // 8-bit style screen shake - snaps to pixel grid
+  useEffect(() => {
+    if (deathEffect) {
+      const interval = setInterval(() => {
+        setShakeFrame(f => f + 1);
+      }, 50); // Update every 50ms for chunky 8-bit feel
+      return () => clearInterval(interval);
+    } else {
+      setShakeFrame(0);
+    }
+  }, [deathEffect]);
+
+  // Play sounds on game events
+  useEffect(() => {
+    if (isGameOver) {
+      stopMusic();
+      playSound('gameover');
+    }
+  }, [isGameOver, stopMusic, playSound]);
 
   const handleSwipe = useCallback((direction: SwipeDirection) => {
     if (gameState === 'playing' && direction) {
@@ -63,10 +88,11 @@ const Index = () => {
     );
   }
 
-  // Screen shake when death effect is active (half intensity)
-  const shakeIntensity = deathEffect ? 2 : 0;
-  const shakeX = deathEffect ? Math.sin(Date.now() * 0.05) * shakeIntensity : 0;
-  const shakeY = deathEffect ? Math.cos(Date.now() * 0.07) * shakeIntensity : 0;
+  // 8-bit pixel-snapped screen shake
+  const shakePatterns = [[0, 0], [1, 0], [-1, 1], [0, -1], [1, 1], [-1, 0]];
+  const shakePattern = shakePatterns[shakeFrame % shakePatterns.length];
+  const shakeX = deathEffect ? shakePattern[0] : 0;
+  const shakeY = deathEffect ? shakePattern[1] : 0;
 
   return (
     <div className="flex flex-col items-center justify-start min-h-screen bg-gradient-to-b from-emerald-900 via-emerald-800 to-cyan-900 p-2 pt-8">
@@ -82,8 +108,17 @@ const Index = () => {
           <SwipeIndicator direction={lastSwipe} />
         </div>
       
-        {/* Mobile swipe hint */}
-        <p className="text-emerald-300/50 text-sm mt-4" style={{ fontFamily: '"Press Start 2P", monospace', fontSize: '8px' }}>SWIPE TO MOVE</p>
+        {/* Mobile swipe hint and mute toggle */}
+        <div className="flex items-center justify-between w-full max-w-[360px] mt-4 px-2">
+          <p className="text-emerald-300/50" style={{ fontFamily: '"Press Start 2P", monospace', fontSize: '8px' }}>SWIPE TO MOVE</p>
+          <button 
+            onClick={toggleMute}
+            className="text-emerald-300/70 hover:text-emerald-300 transition-colors p-1"
+            style={{ fontFamily: '"Press Start 2P", monospace' }}
+          >
+            {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
+          </button>
+        </div>
 
         {isGameOver && (
           <GameOverScreen

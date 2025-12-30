@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useState, useEffect } from 'react';
 
 type SoundType = 'hop' | 'splash' | 'crash' | 'victory' | 'gameover' | 'levelup' | 'dive' | 'surface';
 
@@ -24,8 +24,22 @@ const createOscillator = (
   return { oscillator, gainNode };
 };
 
+// 8-bit style background music sequence
+const MUSIC_NOTES = [
+  { freq: 262, dur: 0.2 }, { freq: 294, dur: 0.2 }, { freq: 330, dur: 0.2 }, { freq: 349, dur: 0.2 },
+  { freq: 392, dur: 0.4 }, { freq: 349, dur: 0.2 }, { freq: 330, dur: 0.2 },
+  { freq: 294, dur: 0.2 }, { freq: 262, dur: 0.4 }, { freq: 0, dur: 0.2 },
+  { freq: 330, dur: 0.2 }, { freq: 392, dur: 0.2 }, { freq: 440, dur: 0.2 }, { freq: 392, dur: 0.2 },
+  { freq: 349, dur: 0.4 }, { freq: 330, dur: 0.2 }, { freq: 294, dur: 0.2 },
+  { freq: 262, dur: 0.2 }, { freq: 294, dur: 0.2 }, { freq: 330, dur: 0.4 }, { freq: 0, dur: 0.2 },
+];
+
 export const useSoundEffects = () => {
   const audioContextRef = useRef<AudioContext | null>(null);
+  const [isMuted, setIsMuted] = useState(false);
+  const musicIntervalRef = useRef<number | null>(null);
+  const musicIndexRef = useRef(0);
+  const isMusicPlayingRef = useRef(false);
 
   const getAudioContext = useCallback(() => {
     if (!audioContextRef.current) {
@@ -34,7 +48,75 @@ export const useSoundEffects = () => {
     return audioContextRef.current;
   }, []);
 
+  const playMusicNote = useCallback(() => {
+    if (isMuted || !isMusicPlayingRef.current) return;
+    
+    try {
+      const ctx = getAudioContext();
+      const note = MUSIC_NOTES[musicIndexRef.current];
+      
+      if (note.freq > 0) {
+        const oscillator = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+        
+        oscillator.type = 'square';
+        oscillator.frequency.setValueAtTime(note.freq, ctx.currentTime);
+        
+        gainNode.gain.setValueAtTime(0.08, ctx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + note.dur * 0.9);
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        
+        oscillator.start(ctx.currentTime);
+        oscillator.stop(ctx.currentTime + note.dur);
+      }
+      
+      musicIndexRef.current = (musicIndexRef.current + 1) % MUSIC_NOTES.length;
+    } catch (error) {
+      console.log('Music playback failed:', error);
+    }
+  }, [getAudioContext, isMuted]);
+
+  const startMusic = useCallback(() => {
+    if (musicIntervalRef.current) return;
+    
+    isMusicPlayingRef.current = true;
+    musicIndexRef.current = 0;
+    
+    // Play notes at intervals
+    const playNextNote = () => {
+      if (!isMusicPlayingRef.current) return;
+      playMusicNote();
+      const note = MUSIC_NOTES[musicIndexRef.current === 0 ? MUSIC_NOTES.length - 1 : musicIndexRef.current - 1];
+      musicIntervalRef.current = window.setTimeout(playNextNote, note.dur * 1000);
+    };
+    
+    playNextNote();
+  }, [playMusicNote]);
+
+  const stopMusic = useCallback(() => {
+    isMusicPlayingRef.current = false;
+    if (musicIntervalRef.current) {
+      clearTimeout(musicIntervalRef.current);
+      musicIntervalRef.current = null;
+    }
+  }, []);
+
+  const toggleMute = useCallback(() => {
+    setIsMuted(prev => !prev);
+  }, []);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      stopMusic();
+    };
+  }, [stopMusic]);
+
   const playSound = useCallback((type: SoundType) => {
+    if (isMuted) return;
+    
     try {
       const ctx = getAudioContext();
       
@@ -89,7 +171,6 @@ export const useSoundEffects = () => {
           break;
         }
         case 'dive': {
-          // Low bubbling sound for turtle diving
           const { oscillator } = createOscillator(ctx, 120, 'sine', 0.25, 0.15);
           oscillator.frequency.exponentialRampToValueAtTime(60, ctx.currentTime + 0.25);
           oscillator.start(ctx.currentTime);
@@ -97,7 +178,6 @@ export const useSoundEffects = () => {
           break;
         }
         case 'surface': {
-          // Bubble pop for turtle surfacing
           const { oscillator } = createOscillator(ctx, 80, 'sine', 0.15, 0.12);
           oscillator.frequency.exponentialRampToValueAtTime(200, ctx.currentTime + 0.1);
           oscillator.start(ctx.currentTime);
@@ -108,7 +188,7 @@ export const useSoundEffects = () => {
     } catch (error) {
       console.log('Sound playback failed:', error);
     }
-  }, [getAudioContext]);
+  }, [getAudioContext, isMuted]);
 
-  return { playSound };
+  return { playSound, isMuted, toggleMute, startMusic, stopMusic };
 };
