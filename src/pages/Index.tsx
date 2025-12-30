@@ -93,33 +93,46 @@ const Index = () => {
   const shakeX = deathEffect ? shakePattern[0] : 0;
   const shakeY = deathEffect ? shakePattern[1] : 0;
 
-  return (
-    <div className="flex flex-col items-center justify-start min-h-screen bg-gradient-to-b from-emerald-900 via-emerald-800 to-cyan-900 p-2 pt-8">
-      <div className="flex flex-col items-center">
-        <GameHUD lives={player.lives} score={player.score} level={level} />
-        <div 
-          className="relative transition-transform duration-75"
-          style={{ 
-            transform: `translate(${shakeX}px, ${shakeY}px)`,
-          }}
-        >
-          <GameCanvas player={player} lanes={lanes} homeSpots={homeSpots} level={level} powerUp={powerUp} isInvincible={isInvincible} deathEffect={deathEffect} />
-          <SwipeIndicator direction={lastSwipe} />
-        </div>
-      
-        {/* Mobile swipe hint */}
-        <p className="text-emerald-300/50 mt-4" style={{ fontFamily: '"Press Start 2P", monospace', fontSize: '8px' }}>SWIPE TO MOVE</p>
+  // Mobile aspect ratio: 9:16 (like iPhone)
+  const ASPECT_RATIO = 9 / 16;
 
-        {isGameOver && (
-          <GameOverScreen
-            score={player.score}
-            level={level}
-            isHighScore={isHighScore(player.score)}
-            onSubmitScore={handleSubmitScore}
-            onPlayAgain={handlePlayAgain}
-            onMainMenu={handleMainMenu}
-          />
-        )}
+  return (
+    <div className="flex items-center justify-center min-h-screen bg-black">
+      <div 
+        className="relative flex flex-col items-center justify-start bg-gradient-to-b from-emerald-900 via-emerald-800 to-cyan-900 p-2 pt-8 overflow-hidden"
+        style={{
+          width: 'min(100vw, 100vh * 9 / 16)',
+          height: 'min(100vh, 100vw * 16 / 9)',
+          maxWidth: '100vw',
+          maxHeight: '100vh',
+        }}
+      >
+        <div className="flex flex-col items-center">
+          <GameHUD lives={player.lives} score={player.score} level={level} />
+          <div 
+            className="relative transition-transform duration-75"
+            style={{ 
+              transform: `translate(${shakeX}px, ${shakeY}px)`,
+            }}
+          >
+            <GameCanvas player={player} lanes={lanes} homeSpots={homeSpots} level={level} powerUp={powerUp} isInvincible={isInvincible} deathEffect={deathEffect} />
+            <SwipeIndicator direction={lastSwipe} />
+          </div>
+        
+          {/* Mobile swipe hint */}
+          <p className="text-emerald-300/50 mt-4" style={{ fontFamily: '"Press Start 2P", monospace', fontSize: '8px' }}>SWIPE TO MOVE</p>
+
+          {isGameOver && (
+            <GameOverScreen
+              score={player.score}
+              level={level}
+              isHighScore={isHighScore(player.score)}
+              onSubmitScore={handleSubmitScore}
+              onPlayAgain={handlePlayAgain}
+              onMainMenu={handleMainMenu}
+            />
+          )}
+        </div>
       </div>
     </div>
   );
