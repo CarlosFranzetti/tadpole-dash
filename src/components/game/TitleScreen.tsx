@@ -39,13 +39,13 @@ export const TitleScreen = ({ onStart, onHighScores }: TitleScreenProps) => {
         </svg>
       </motion.div>
 
-      {/* Title */}
+      {/* Title - Pixel Font */}
       <motion.h1 
-        className="text-6xl md:text-7xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-lime-300 via-green-400 to-emerald-500 mb-2"
+        className="text-4xl md:text-5xl text-lime-300 mb-2"
         style={{ 
           fontFamily: '"Press Start 2P", monospace',
-          textShadow: '4px 4px 0 #166534, 8px 8px 0 #14532d',
-          letterSpacing: '0.1em'
+          textShadow: '3px 3px 0 #166534, 6px 6px 0 #14532d',
+          letterSpacing: '0.05em'
         }}
         initial={{ y: -50, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -55,15 +55,16 @@ export const TitleScreen = ({ onStart, onHighScores }: TitleScreenProps) => {
       </motion.h1>
 
       <motion.p
-        className="text-lime-200 text-sm mb-8 opacity-75"
+        className="text-lime-200 text-xs mb-8 opacity-75"
+        style={{ fontFamily: '"Press Start 2P", monospace' }}
         initial={{ opacity: 0 }}
         animate={{ opacity: 0.75 }}
         transition={{ delay: 0.6 }}
       >
-        A Frogger Adventure
+        A FROGGER ADVENTURE
       </motion.p>
 
-      {/* Buttons */}
+      {/* Buttons - Pixel Style */}
       <motion.div 
         className="flex flex-col gap-4 w-full max-w-xs"
         initial={{ y: 50, opacity: 0 }}
@@ -72,30 +73,37 @@ export const TitleScreen = ({ onStart, onHighScores }: TitleScreenProps) => {
       >
         <button
           onClick={onStart}
-          className="px-8 py-4 bg-gradient-to-r from-lime-500 to-green-600 hover:from-lime-400 hover:to-green-500 text-white font-bold text-xl rounded-lg shadow-lg transform hover:scale-105 transition-all border-b-4 border-green-700 active:border-b-0 active:translate-y-1"
-          style={{ fontFamily: 'inherit' }}
+          className="px-6 py-4 bg-lime-500 hover:bg-lime-400 text-emerald-900 text-sm rounded-none shadow-lg transform hover:scale-105 transition-all border-4 border-lime-700 active:translate-y-1"
+          style={{ 
+            fontFamily: '"Press Start 2P", monospace',
+            boxShadow: '4px 4px 0 #166534'
+          }}
         >
-          TAP TO START
+          START GAME
         </button>
 
         <button
           onClick={onHighScores}
-          className="px-8 py-3 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white font-bold text-lg rounded-lg shadow-lg transform hover:scale-105 transition-all border-b-4 border-orange-700 active:border-b-0 active:translate-y-1"
-          style={{ fontFamily: 'inherit' }}
+          className="px-6 py-3 bg-amber-500 hover:bg-amber-400 text-amber-900 text-xs rounded-none shadow-lg transform hover:scale-105 transition-all border-4 border-amber-700 active:translate-y-1"
+          style={{ 
+            fontFamily: '"Press Start 2P", monospace',
+            boxShadow: '4px 4px 0 #92400e'
+          }}
         >
           HIGH SCORES
         </button>
       </motion.div>
 
-      {/* Controls hint */}
+      {/* Controls hint - Pixel Font */}
       <motion.div 
-        className="mt-12 text-lime-200/60 text-center text-sm"
+        className="mt-12 text-lime-200/60 text-center"
+        style={{ fontFamily: '"Press Start 2P", monospace' }}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 1 }}
       >
-        <p>Swipe to move</p>
-        <p className="text-xs mt-1">or use arrow keys</p>
+        <p className="text-xs">SWIPE TO MOVE</p>
+        <p className="text-[8px] mt-2 opacity-60">OR USE ARROW KEYS</p>
       </motion.div>
 
       {/* Decorative lily pads */}

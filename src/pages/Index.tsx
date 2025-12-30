@@ -63,17 +63,27 @@ const Index = () => {
     );
   }
 
+  // Screen shake when death effect is active
+  const shakeIntensity = deathEffect ? 4 : 0;
+  const shakeX = deathEffect ? Math.sin(Date.now() * 0.05) * shakeIntensity : 0;
+  const shakeY = deathEffect ? Math.cos(Date.now() * 0.07) * shakeIntensity : 0;
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-emerald-900 via-emerald-800 to-cyan-900 p-2">
       <div className="flex flex-col items-center justify-center flex-1">
         <GameHUD lives={player.lives} score={player.score} level={level} />
-        <div className="relative">
+        <div 
+          className="relative transition-transform duration-75"
+          style={{ 
+            transform: `translate(${shakeX}px, ${shakeY}px)`,
+          }}
+        >
           <GameCanvas player={player} lanes={lanes} homeSpots={homeSpots} level={level} powerUp={powerUp} isInvincible={isInvincible} deathEffect={deathEffect} />
           <SwipeIndicator direction={lastSwipe} />
         </div>
       
         {/* Mobile swipe hint */}
-        <p className="text-emerald-300/50 text-sm mt-4">Swipe to move your frog!</p>
+        <p className="text-emerald-300/50 text-sm mt-4" style={{ fontFamily: '"Press Start 2P", monospace', fontSize: '8px' }}>SWIPE TO MOVE</p>
 
         {isGameOver && (
           <GameOverScreen

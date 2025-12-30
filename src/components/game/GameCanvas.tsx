@@ -709,41 +709,48 @@ export const GameCanvas = ({ player, lanes, homeSpots, level, powerUp, isInvinci
           }
         }
         
-        // Water splash particles
+        // Water splash particles - CIRCLES
         deathEffect.particles.forEach((p) => {
-          const age = dFrame * 0.08; // Slower animation
+          const age = dFrame * 0.08;
           const px = p.x + p.vx * age;
-          const py = p.y + p.vy * age + age * age * 0.5; // Gravity arc
+          const py = p.y + p.vy * age + age * age * 0.5;
           const alpha = Math.max(0, 1 - age / 12);
-          const size = p.size * Math.max(0.3, 1 - age / 15);
+          const radius = (p.size / 2) * Math.max(0.3, 1 - age / 15);
           
-          if (alpha > 0 && size > 0) {
+          if (alpha > 0 && radius > 0) {
             ctx.globalAlpha = alpha;
             ctx.fillStyle = p.color;
-            ctx.fillRect(Math.floor(px), Math.floor(py), Math.ceil(size), Math.ceil(size));
+            ctx.beginPath();
+            ctx.arc(px, py, radius, 0, Math.PI * 2);
+            ctx.fill();
           }
         });
         
-        // Expanding ripple rings
+        // Expanding ripple rings - CIRCLES
         for (let ring = 0; ring < 3; ring++) {
           const rippleAge = (dFrame - ring * 8) * 0.06;
           if (rippleAge > 0 && rippleAge < 4) {
             ctx.globalAlpha = Math.max(0, 0.7 - rippleAge * 0.18);
             ctx.strokeStyle = '#81d4fa';
             ctx.lineWidth = Math.max(1, 3 - rippleAge);
-            const rippleSize = 8 + rippleAge * 18;
-            ctx.strokeRect(cx - rippleSize, cy - rippleSize / 2, rippleSize * 2, rippleSize);
+            const rippleRadius = 8 + rippleAge * 18;
+            ctx.beginPath();
+            ctx.arc(cx, cy, rippleRadius, 0, Math.PI * 2);
+            ctx.stroke();
           }
         }
         
-        // Bubbles rising
+        // Bubbles rising - CIRCLES
         if (dFrame > 10 && dFrame < 50) {
-          ctx.globalAlpha = 0.6;
           ctx.fillStyle = '#e1f5fe';
-          for (let b = 0; b < 4; b++) {
-            const bubbleY = cy - ((dFrame - 10) * 1.5) - b * 8;
-            const bubbleX = cx + Math.sin(dFrame * 0.3 + b) * 5 + (b - 1.5) * 6;
-            ctx.fillRect(Math.floor(bubbleX), Math.floor(bubbleY), 3, 3);
+          for (let b = 0; b < 5; b++) {
+            const bubbleY = cy - ((dFrame - 10) * 1.5) - b * 7;
+            const bubbleX = cx + Math.sin(dFrame * 0.3 + b) * 6 + (b - 2) * 5;
+            const bubbleAlpha = Math.max(0, 1 - (dFrame - 10) / 40);
+            ctx.globalAlpha = bubbleAlpha * 0.7;
+            ctx.beginPath();
+            ctx.arc(bubbleX, bubbleY, 2 + (b % 2), 0, Math.PI * 2);
+            ctx.fill();
           }
         }
       } else {
