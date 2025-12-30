@@ -317,31 +317,31 @@ export const useGameLogic = () => {
 
   const createDeathParticles = useCallback((x: number, y: number, type: 'splash' | 'crash') => {
     const particles = [];
-    const count = type === 'splash' ? 12 : 8;
+    const count = type === 'splash' ? 16 : 12;
     
     for (let i = 0; i < count; i++) {
-      const angle = (Math.PI * 2 * i) / count + Math.random() * 0.5;
-      const speed = 2 + Math.random() * 3;
+      const angle = (Math.PI * 2 * i) / count + Math.random() * 0.3;
+      const speed = 1.5 + Math.random() * 2.5;
       
       if (type === 'splash') {
-        // Blue water particles
+        // Blue water particles - more varied
         particles.push({
-          x: x + PLAYER_SIZE / 2,
+          x: x + PLAYER_SIZE / 2 + (Math.random() - 0.5) * 8,
           y: y + PLAYER_SIZE / 2,
           vx: Math.cos(angle) * speed,
-          vy: Math.sin(angle) * speed - 2, // Upward bias
-          size: 3 + Math.random() * 3,
-          color: ['#4fc3f7', '#29b6f6', '#03a9f4', '#81d4fa'][Math.floor(Math.random() * 4)],
+          vy: Math.sin(angle) * speed - 3, // Strong upward bias
+          size: 2 + Math.random() * 4,
+          color: ['#4fc3f7', '#29b6f6', '#03a9f4', '#81d4fa', '#b3e5fc'][Math.floor(Math.random() * 5)],
         });
       } else {
-        // Red blood/splat particles
+        // Red blood/splat particles - more spread
         particles.push({
-          x: x + PLAYER_SIZE / 2,
+          x: x + PLAYER_SIZE / 2 + (Math.random() - 0.5) * 10,
           y: y + PLAYER_SIZE / 2,
-          vx: Math.cos(angle) * speed * 0.8,
-          vy: Math.sin(angle) * speed * 0.5,
-          size: 2 + Math.random() * 4,
-          color: ['#c62828', '#d32f2f', '#e53935', '#8b0000'][Math.floor(Math.random() * 4)],
+          vx: Math.cos(angle) * speed * 1.2,
+          vy: Math.sin(angle) * speed * 0.6,
+          size: 2 + Math.random() * 5,
+          color: ['#c62828', '#d32f2f', '#e53935', '#b71c1c', '#ff5252'][Math.floor(Math.random() * 5)],
         });
       }
     }
@@ -349,41 +349,61 @@ export const useGameLogic = () => {
     return particles;
   }, []);
 
-  const handleDeath = useCallback((type: 'splash' | 'crash') => {
-    if (isInvincible) return; // Invincibility protects from death
+  const isDyingRef = useRef(false);
 
+  const handleDeath = useCallback((type: 'splash' | 'crash') => {
+    if (isInvincible || isDyingRef.current) return; // Prevent double death
+    
+    isDyingRef.current = true;
     playSound(type);
     
     // Create death effect at current position
+    const deathX = playerRef.current.x;
+    const deathY = playerRef.current.y;
+    
     setDeathEffect({
-      x: playerRef.current.x,
-      y: playerRef.current.y,
+      x: deathX,
+      y: deathY,
       type,
       frame: 0,
-      particles: createDeathParticles(playerRef.current.x, playerRef.current.y, type),
+      particles: createDeathParticles(deathX, deathY, type),
     });
     
-    // Clear effect after animation
-    setTimeout(() => setDeathEffect(null), 800);
+    // Hide the player immediately by moving off screen during death animation
+    setPlayer(prev => ({
+      ...prev,
+      x: -100,
+      y: -100,
+      targetX: -100,
+      targetY: -100,
+      isMoving: false,
+    }));
     
-    setPlayer(prev => {
-      const newLives = prev.lives - 1;
-      if (newLives <= 0) {
-        setIsGameOver(true);
-        playSound('gameover');
-        return { ...prev, lives: 0 };
-      }
-      return {
-        ...prev,
-        lives: newLives,
-        x: STARTING_X,
-        y: STARTING_Y,
-        targetX: STARTING_X,
-        targetY: STARTING_Y,
-        isMoving: false,
-      };
-    });
-    setHighestRow(START_ROW);
+    // Pause for 1 second to show animation, then respawn or game over
+    setTimeout(() => {
+      setDeathEffect(null);
+      isDyingRef.current = false;
+      
+      setPlayer(prev => {
+        const newLives = prev.lives - 1;
+        if (newLives <= 0) {
+          setIsGameOver(true);
+          playSound('gameover');
+          return { ...prev, lives: 0 };
+        }
+        return {
+          ...prev,
+          lives: newLives,
+          x: STARTING_X,
+          y: STARTING_Y,
+          targetX: STARTING_X,
+          targetY: STARTING_Y,
+          isMoving: false,
+        };
+      });
+      setHighestRow(START_ROW);
+    }, 1000); // 1 second pause
+    
   }, [playSound, isInvincible, createDeathParticles]);
 
   const collectPowerUp = useCallback(() => {

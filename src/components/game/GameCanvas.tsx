@@ -689,66 +689,118 @@ export const GameCanvas = ({ player, lanes, homeSpots, level, powerUp, isInvinci
     if (deathEffect) {
       deathFrameRef.current++;
       const dFrame = deathFrameRef.current;
+      const cx = deathEffect.x + PLAYER_SIZE / 2;
+      const cy = deathEffect.y + PLAYER_SIZE / 2;
       
       if (deathEffect.type === 'splash') {
+        // Draw sinking frog first (before particles)
+        const sinkProgress = Math.min(dFrame / 20, 1);
+        if (sinkProgress < 1) {
+          ctx.globalAlpha = 1 - sinkProgress;
+          // Frog sinking into water
+          const sinkY = cy - 10 + sinkProgress * 15;
+          ctx.fillStyle = '#5a8a4a';
+          ctx.fillRect(cx - 10, sinkY, 20, 14 * (1 - sinkProgress * 0.5));
+          // Eyes going under
+          if (sinkProgress < 0.6) {
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(cx - 8, sinkY - 4, 5, 4);
+            ctx.fillRect(cx + 3, sinkY - 4, 5, 4);
+          }
+        }
+        
         // Water splash particles
-        deathEffect.particles.forEach((p, i) => {
-          const age = dFrame * 0.15;
+        deathEffect.particles.forEach((p) => {
+          const age = dFrame * 0.08; // Slower animation
           const px = p.x + p.vx * age;
-          const py = p.y + p.vy * age + age * age * 0.3; // Gravity
-          const alpha = Math.max(0, 1 - age / 8);
-          const size = p.size * (1 - age / 12);
+          const py = p.y + p.vy * age + age * age * 0.5; // Gravity arc
+          const alpha = Math.max(0, 1 - age / 12);
+          const size = p.size * Math.max(0.3, 1 - age / 15);
           
           if (alpha > 0 && size > 0) {
             ctx.globalAlpha = alpha;
             ctx.fillStyle = p.color;
-            ctx.fillRect(Math.floor(px), Math.floor(py), Math.floor(size), Math.floor(size));
+            ctx.fillRect(Math.floor(px), Math.floor(py), Math.ceil(size), Math.ceil(size));
           }
         });
         
-        // Splash ripple rings
-        const rippleAge = dFrame * 0.1;
-        if (rippleAge < 3) {
-          ctx.globalAlpha = 0.6 - rippleAge * 0.2;
-          ctx.strokeStyle = '#4fc3f7';
-          ctx.lineWidth = 2;
-          const cx = deathEffect.x + PLAYER_SIZE / 2;
-          const cy = deathEffect.y + PLAYER_SIZE / 2;
-          // Pixel ripple (square)
-          const rippleSize = 10 + rippleAge * 15;
-          ctx.strokeRect(cx - rippleSize, cy - rippleSize / 2, rippleSize * 2, rippleSize);
+        // Expanding ripple rings
+        for (let ring = 0; ring < 3; ring++) {
+          const rippleAge = (dFrame - ring * 8) * 0.06;
+          if (rippleAge > 0 && rippleAge < 4) {
+            ctx.globalAlpha = Math.max(0, 0.7 - rippleAge * 0.18);
+            ctx.strokeStyle = '#81d4fa';
+            ctx.lineWidth = Math.max(1, 3 - rippleAge);
+            const rippleSize = 8 + rippleAge * 18;
+            ctx.strokeRect(cx - rippleSize, cy - rippleSize / 2, rippleSize * 2, rippleSize);
+          }
+        }
+        
+        // Bubbles rising
+        if (dFrame > 10 && dFrame < 50) {
+          ctx.globalAlpha = 0.6;
+          ctx.fillStyle = '#e1f5fe';
+          for (let b = 0; b < 4; b++) {
+            const bubbleY = cy - ((dFrame - 10) * 1.5) - b * 8;
+            const bubbleX = cx + Math.sin(dFrame * 0.3 + b) * 5 + (b - 1.5) * 6;
+            ctx.fillRect(Math.floor(bubbleX), Math.floor(bubbleY), 3, 3);
+          }
         }
       } else {
         // Car crash - squished frog and blood splat
-        const age = dFrame * 0.12;
-        const cx = deathEffect.x + PLAYER_SIZE / 2;
-        const cy = deathEffect.y + PLAYER_SIZE / 2;
+        const age = dFrame * 0.06; // Slower animation
         
-        // Blood splat particles
+        // Initial impact flash
+        if (dFrame < 4) {
+          ctx.globalAlpha = 1 - dFrame / 4;
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(cx - 20, cy - 20, 40, 40);
+        }
+        
+        // Blood splat particles spreading outward
         deathEffect.particles.forEach((p) => {
-          const px = p.x + p.vx * age;
+          const px = p.x + p.vx * age * 1.5;
           const py = p.y + p.vy * age;
-          const alpha = Math.max(0, 1 - age / 10);
+          const alpha = Math.max(0, 1 - age / 15);
+          const size = p.size * (0.8 + age * 0.1); // Particles grow slightly
           
           if (alpha > 0) {
             ctx.globalAlpha = alpha;
             ctx.fillStyle = p.color;
-            ctx.fillRect(Math.floor(px), Math.floor(py), Math.floor(p.size), Math.floor(p.size));
+            ctx.fillRect(Math.floor(px), Math.floor(py), Math.ceil(size), Math.ceil(size));
           }
         });
         
-        // Squished frog (flattened)
-        if (age < 6) {
-          ctx.globalAlpha = Math.max(0, 1 - age / 6);
-          // Flat red/green splat
+        // Squished frog remains (stays visible longer)
+        if (age < 12) {
+          ctx.globalAlpha = Math.max(0, 1 - age / 12);
+          
+          // Blood pool expanding
+          const poolSize = 10 + age * 3;
           ctx.fillStyle = '#8b0000';
-          ctx.fillRect(cx - 14, cy - 4, 28, 8);
-          ctx.fillStyle = '#556b2f';
-          ctx.fillRect(cx - 10, cy - 2, 20, 4);
-          // Eyes (Xs)
-          ctx.fillStyle = '#ffffff';
-          ctx.fillRect(cx - 8, cy - 2, 4, 2);
-          ctx.fillRect(cx + 4, cy - 2, 4, 2);
+          ctx.fillRect(cx - poolSize, cy - poolSize / 3, poolSize * 2, poolSize * 0.7);
+          
+          // Flattened frog body
+          ctx.fillStyle = '#4a6a3a';
+          ctx.fillRect(cx - 12, cy - 3, 24, 6);
+          
+          // Splayed legs
+          ctx.fillStyle = '#3d5a32';
+          ctx.fillRect(cx - 18, cy - 1, 6, 3);
+          ctx.fillRect(cx + 12, cy - 1, 6, 3);
+          ctx.fillRect(cx - 16, cy + 4, 5, 3);
+          ctx.fillRect(cx + 11, cy + 4, 5, 3);
+          
+          // X eyes (dead)
+          ctx.fillStyle = '#000000';
+          // Left X
+          ctx.fillRect(cx - 8, cy - 2, 1, 3);
+          ctx.fillRect(cx - 6, cy - 2, 1, 3);
+          ctx.fillRect(cx - 7, cy - 1, 1, 1);
+          // Right X
+          ctx.fillRect(cx + 5, cy - 2, 1, 3);
+          ctx.fillRect(cx + 7, cy - 2, 1, 3);
+          ctx.fillRect(cx + 6, cy - 1, 1, 1);
         }
       }
       
