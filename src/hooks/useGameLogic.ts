@@ -16,21 +16,22 @@ const STARTING_Y = 12 * TILE_SIZE + 2;
 
 // Vehicle types with their tile spans
 const VEHICLE_TYPES = {
+  tiny: ['motorcycle'], // Very small, fast
   small: ['car-small'], // 1 tile
   medium: ['car', 'car-wide'], // ~1.25-2 tiles
   large: ['truck', 'truck-long'], // 2-3 tiles
 };
 
-const getRandomVehicleType = (level: number, laneIndex: number): string => {
-  const seed = laneIndex * 7 + level * 13;
+const getRandomVehicleType = (level: number, laneIndex: number, objectIndex: number): string => {
+  const seed = laneIndex * 7 + level * 13 + objectIndex * 11;
   
   if (level <= 2) {
-    // Levels 1-2: mostly small and medium vehicles
-    const types = [...VEHICLE_TYPES.small, ...VEHICLE_TYPES.small, ...VEHICLE_TYPES.medium];
+    // Levels 1-2: mostly small and medium vehicles, occasional motorcycle
+    const types = ['car-small', 'car-small', 'car', 'car-wide', 'motorcycle'];
     return types[seed % types.length];
   } else {
-    // Level 3+: include some large vehicles
-    const types = [...VEHICLE_TYPES.small, ...VEHICLE_TYPES.medium, ...VEHICLE_TYPES.large];
+    // Level 3+: include some large vehicles and more motorcycles
+    const types = ['car-small', 'car', 'car-wide', 'truck', 'truck-long', 'motorcycle', 'motorcycle'];
     return types[seed % types.length];
   }
 };
@@ -44,9 +45,9 @@ const createLaneObjects = (laneConfig: typeof LANES_CONFIG[number], level: numbe
   const isRoad = laneConfig.type === 'road';
   
   // More spacing on level 1, decreases with level
-  const baseSpacing = isRoad ? 280 : 180;
+  const baseSpacing = isRoad ? (level === 1 ? 340 : 280) : 160; // Tighter water platform spacing
   const spacingReduction = Math.min((level - 1) * 25, 80); // Cap reduction
-  const spacing = Math.max(baseSpacing - spacingReduction, isRoad ? 160 : 140);
+  const spacing = Math.max(baseSpacing - spacingReduction, isRoad ? 160 : 120);
   
   const numObjects = Math.ceil((GAME_WIDTH + spacing * 2) / spacing);
   const speedMultiplier = 1 + (level - 1) * 0.12; // Slightly slower speed increase
@@ -57,7 +58,7 @@ const createLaneObjects = (laneConfig: typeof LANES_CONFIG[number], level: numbe
     // For road lanes, pick varied vehicle types
     let objectType = laneConfig.objectType;
     if (isRoad) {
-      objectType = getRandomVehicleType(level, laneConfig.y + i);
+      objectType = getRandomVehicleType(level, laneConfig.y, i);
     }
     
     const objectWidth = OBJECT_WIDTHS[objectType] || 60;
@@ -65,16 +66,20 @@ const createLaneObjects = (laneConfig: typeof LANES_CONFIG[number], level: numbe
     // Add some randomness to spacing for variety
     const randomOffset = isRoad ? (Math.sin(i * 3.7 + laneConfig.y) * 30) : 0;
     
+    // Motorcycles are faster
+    const speedBonus = objectType === 'motorcycle' ? 1.8 : 1;
+    
     objects.push({
       x: i * spacing - objectWidth + randomOffset,
       y: laneConfig.y * TILE_SIZE,
       width: objectWidth,
       height: TILE_SIZE - 4,
-      speed: (laneConfig.speed || 1) * speedMultiplier,
+      speed: (laneConfig.speed || 1) * speedMultiplier * speedBonus,
       direction: laneConfig.direction || 1,
       type: objectType,
       isDiving: false,
       diveTimer: isTurtle ? Math.random() * 3000 + 2000 : undefined,
+      colorVariant: Math.floor(Math.random() * 4), // Fixed color per vehicle
     });
   }
 
