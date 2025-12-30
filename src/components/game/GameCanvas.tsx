@@ -12,8 +12,8 @@ interface GameCanvasProps {
   deathEffect?: DeathEffect | null;
 }
 
-// Smaller frog size (12% reduction)
-const FROG_SCALE = 0.88;
+// Smaller frog size (17% reduction)
+const FROG_SCALE = 0.83;
 const FROG_SIZE = PLAYER_SIZE * FROG_SCALE;
 const FROG_OFFSET = (PLAYER_SIZE - FROG_SIZE) / 2;
 
@@ -77,8 +77,8 @@ export const GameCanvas = ({ player, lanes, homeSpots, level, powerUp, isInvinci
         case 'road':
           ctx.fillStyle = COLORS.road;
           ctx.fillRect(0, laneY, GAME_WIDTH, TILE_SIZE);
-          // Alternating road markings by row - lighter yellow
-          ctx.fillStyle = '#ffffaa';
+          // Alternating road markings by row - dimmer yellow (30% less bright)
+          ctx.fillStyle = '#b3b377';
           if (laneIndex % 2 === 0) {
             // Dashed center line
             for (let x = 10; x < GAME_WIDTH; x += 50) {
@@ -88,6 +88,11 @@ export const GameCanvas = ({ player, lanes, homeSpots, level, powerUp, isInvinci
             // Solid edge lines
             ctx.fillRect(0, laneY + 2, GAME_WIDTH, 2);
             ctx.fillRect(0, laneY + TILE_SIZE - 4, GAME_WIDTH, 2);
+          }
+          // Add line at top of road section (between road and grass)
+          if (laneIndex === lanes.findIndex(l => l.type === 'road')) {
+            ctx.fillStyle = '#4a4a4a';
+            ctx.fillRect(0, laneY, GAME_WIDTH, 2);
           }
           break;
         case 'water':

@@ -63,14 +63,14 @@ const Index = () => {
     );
   }
 
-  // Screen shake when death effect is active
-  const shakeIntensity = deathEffect ? 4 : 0;
+  // Screen shake when death effect is active (half intensity)
+  const shakeIntensity = deathEffect ? 2 : 0;
   const shakeX = deathEffect ? Math.sin(Date.now() * 0.05) * shakeIntensity : 0;
   const shakeY = deathEffect ? Math.cos(Date.now() * 0.07) * shakeIntensity : 0;
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-emerald-900 via-emerald-800 to-cyan-900 p-2">
-      <div className="flex flex-col items-center justify-center flex-1">
+    <div className="flex flex-col items-center justify-start min-h-screen bg-gradient-to-b from-emerald-900 via-emerald-800 to-cyan-900 p-2 pt-8">
+      <div className="flex flex-col items-center">
         <GameHUD lives={player.lives} score={player.score} level={level} />
         <div 
           className="relative transition-transform duration-75"
