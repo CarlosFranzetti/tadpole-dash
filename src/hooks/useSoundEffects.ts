@@ -107,10 +107,23 @@ export const useSoundEffects = () => {
     setIsMuted(prev => !prev);
   }, []);
 
-  // Cleanup on unmount
+  // Cleanup on unmount and page close
   useEffect(() => {
-    return () => {
+    const handleBeforeUnload = () => {
       stopMusic();
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+        audioContextRef.current = null;
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('pagehide', handleBeforeUnload);
+
+    return () => {
+      handleBeforeUnload();
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('pagehide', handleBeforeUnload);
     };
   }, [stopMusic]);
 
