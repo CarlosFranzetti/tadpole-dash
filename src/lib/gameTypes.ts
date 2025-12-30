@@ -11,7 +11,15 @@ export interface GameObject extends Position {
   type: string;
   isDiving?: boolean;
   diveTimer?: number;
+  divePhase?: 'surface' | 'diving' | 'submerged' | 'rising';
   colorVariant?: number;
+}
+
+export interface PowerUp {
+  x: number;
+  y: number;
+  type: 'extraLife' | 'invincibility';
+  collected: boolean;
 }
 
 export interface Lane {

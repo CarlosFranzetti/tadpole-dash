@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Player, Lane, HomeSpot } from '@/lib/gameTypes';
+import { Player, Lane, HomeSpot, PowerUp } from '@/lib/gameTypes';
 import { GAME_WIDTH, GAME_HEIGHT, TILE_SIZE, PLAYER_SIZE, COLORS } from '@/lib/gameConstants';
 
 interface GameCanvasProps {
@@ -7,9 +7,11 @@ interface GameCanvasProps {
   lanes: Lane[];
   homeSpots: HomeSpot[];
   level: number;
+  powerUp?: PowerUp | null;
+  isInvincible?: boolean;
 }
 
-export const GameCanvas = ({ player, lanes, homeSpots, level }: GameCanvasProps) => {
+export const GameCanvas = ({ player, lanes, homeSpots, level, powerUp, isInvincible }: GameCanvasProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -251,34 +253,72 @@ export const GameCanvas = ({ player, lanes, homeSpots, level }: GameCanvasProps)
           case 'turtle':
             const turtleCount = 3;
             const turtleSpacing = obj.width / turtleCount;
-            const isDiving = obj.isDiving || false;
+            const divePhase = obj.divePhase || 'surface';
             
-            // Set opacity based on diving state
-            ctx.globalAlpha = isDiving ? 0.3 : 1.0;
+            // Calculate animation progress based on dive phase
+            let diveProgress = 0;
+            let opacity = 1.0;
+            let yOffset = 0;
+            let scale = 1.0;
+            
+            switch (divePhase) {
+              case 'surface':
+                diveProgress = 0;
+                opacity = 1.0;
+                yOffset = 0;
+                scale = 1.0;
+                break;
+              case 'diving':
+                // Animate from surface to submerged
+                diveProgress = obj.diveTimer ? 1 - (obj.diveTimer / 800) : 0;
+                opacity = 1.0 - (diveProgress * 0.7);
+                yOffset = diveProgress * 6;
+                scale = 1.0 - (diveProgress * 0.3);
+                break;
+              case 'submerged':
+                diveProgress = 1;
+                opacity = 0.3;
+                yOffset = 6;
+                scale = 0.7;
+                break;
+              case 'rising':
+                // Animate from submerged to surface
+                diveProgress = obj.diveTimer ? obj.diveTimer / 800 : 0;
+                opacity = 0.3 + ((1 - diveProgress) * 0.7);
+                yOffset = diveProgress * 6;
+                scale = 0.7 + ((1 - diveProgress) * 0.3);
+                break;
+            }
+            
+            ctx.globalAlpha = opacity;
             
             for (let i = 0; i < turtleCount; i++) {
               const tx = x + i * turtleSpacing + 5;
+              const shellRadiusX = 12 * scale;
+              const shellRadiusY = 10 * scale;
+              
               // Shell
-              ctx.fillStyle = isDiving ? '#2d5a5a' : COLORS.turtle;
+              ctx.fillStyle = divePhase === 'submerged' ? '#2d5a5a' : COLORS.turtle;
               ctx.beginPath();
-              ctx.ellipse(tx + 12, y + h / 2 + (isDiving ? 4 : 0), 12, isDiving ? 8 : 10, 0, 0, Math.PI * 2);
+              ctx.ellipse(tx + 12, y + h / 2 + yOffset, shellRadiusX, shellRadiusY, 0, 0, Math.PI * 2);
               ctx.fill();
               
-              if (!isDiving) {
-                // Shell pattern (only visible when not diving)
+              if (divePhase === 'surface' || divePhase === 'rising') {
+                // Shell pattern
                 ctx.fillStyle = '#388e3c';
                 ctx.beginPath();
-                ctx.ellipse(tx + 12, y + h / 2, 8, 6, 0, 0, Math.PI * 2);
+                ctx.ellipse(tx + 12, y + h / 2 + yOffset, 8 * scale, 6 * scale, 0, 0, Math.PI * 2);
                 ctx.fill();
                 // Head
                 ctx.fillStyle = '#66bb6a';
-                ctx.fillRect(tx + 22, y + h / 2 - 4, 6, 8);
+                ctx.fillRect(tx + 22, y + h / 2 - 4 + yOffset, 6 * scale, 8 * scale);
                 // Flippers
                 ctx.fillStyle = '#4caf50';
-                ctx.fillRect(tx + 4, y + 4, 6, 6);
-                ctx.fillRect(tx + 14, y + 4, 6, 6);
-                ctx.fillRect(tx + 4, y + h - 10, 6, 6);
-                ctx.fillRect(tx + 14, y + h - 10, 6, 6);
+                const flipperSize = 6 * scale;
+                ctx.fillRect(tx + 4, y + 4 + yOffset, flipperSize, flipperSize);
+                ctx.fillRect(tx + 14, y + 4 + yOffset, flipperSize, flipperSize);
+                ctx.fillRect(tx + 4, y + h - 10 + yOffset, flipperSize, flipperSize);
+                ctx.fillRect(tx + 14, y + h - 10 + yOffset, flipperSize, flipperSize);
               }
             }
             
@@ -290,11 +330,68 @@ export const GameCanvas = ({ player, lanes, homeSpots, level }: GameCanvasProps)
       });
     });
 
+    // Draw power-up
+    if (powerUp && !powerUp.collected) {
+      const puX = powerUp.x;
+      const puY = powerUp.y;
+      const pulse = Math.sin(Date.now() / 200) * 2;
+      
+      ctx.save();
+      
+      if (powerUp.type === 'extraLife') {
+        // Heart shape for extra life
+        ctx.fillStyle = '#e91e63';
+        ctx.beginPath();
+        ctx.moveTo(puX + 15, puY + 8 + pulse);
+        ctx.bezierCurveTo(puX + 15, puY + 5 + pulse, puX + 10, puY + pulse, puX + 5, puY + 5 + pulse);
+        ctx.bezierCurveTo(puX, puY + 10 + pulse, puX, puY + 18 + pulse, puX + 15, puY + 28 + pulse);
+        ctx.bezierCurveTo(puX + 30, puY + 18 + pulse, puX + 30, puY + 10 + pulse, puX + 25, puY + 5 + pulse);
+        ctx.bezierCurveTo(puX + 20, puY + pulse, puX + 15, puY + 5 + pulse, puX + 15, puY + 8 + pulse);
+        ctx.fill();
+        // Glow
+        ctx.shadowColor = '#e91e63';
+        ctx.shadowBlur = 10;
+        ctx.fill();
+      } else {
+        // Star shape for invincibility
+        ctx.fillStyle = '#ffd700';
+        const centerX = puX + 15;
+        const centerY = puY + 15 + pulse;
+        const outerRadius = 12;
+        const innerRadius = 5;
+        
+        ctx.beginPath();
+        for (let i = 0; i < 10; i++) {
+          const radius = i % 2 === 0 ? outerRadius : innerRadius;
+          const angle = (i * Math.PI) / 5 - Math.PI / 2;
+          const px = centerX + Math.cos(angle) * radius;
+          const py = centerY + Math.sin(angle) * radius;
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.fill();
+        // Glow
+        ctx.shadowColor = '#ffd700';
+        ctx.shadowBlur = 15;
+        ctx.fill();
+      }
+      
+      ctx.restore();
+    }
+
     // Draw player (frog)
     const px = Math.round(player.x);
     const py = Math.round(player.y);
 
     ctx.save();
+    
+    // Invincibility glow effect
+    if (isInvincible) {
+      const glowPulse = Math.sin(Date.now() / 100) * 0.3 + 0.7;
+      ctx.shadowColor = '#ffd700';
+      ctx.shadowBlur = 20 * glowPulse;
+    }
     
     // Shadow
     ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
@@ -303,7 +400,8 @@ export const GameCanvas = ({ player, lanes, homeSpots, level }: GameCanvasProps)
     ctx.fill();
 
     // Body
-    ctx.fillStyle = COLORS.player;
+    ctx.fillStyle = isInvincible ? '#ffd700' : COLORS.player;
+    ctx.fillRect(px + 4, py + 8, PLAYER_SIZE - 8, PLAYER_SIZE - 12);
     ctx.fillRect(px + 4, py + 8, PLAYER_SIZE - 8, PLAYER_SIZE - 12);
     
     // Head
@@ -335,7 +433,7 @@ export const GameCanvas = ({ player, lanes, homeSpots, level }: GameCanvasProps)
 
     ctx.restore();
 
-  }, [player, lanes, homeSpots, level]);
+  }, [player, lanes, homeSpots, level, powerUp, isInvincible]);
 
   return (
     <canvas

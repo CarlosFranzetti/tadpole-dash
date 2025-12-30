@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Player, Lane, GameObject, HomeSpot, SwipeDirection } from '@/lib/gameTypes';
+import { Player, Lane, GameObject, HomeSpot, SwipeDirection, PowerUp } from '@/lib/gameTypes';
 import { 
   GAME_WIDTH, 
   TILE_SIZE, 
@@ -14,23 +14,21 @@ import { useSoundEffects } from './useSoundEffects';
 const STARTING_X = GAME_WIDTH / 2 - PLAYER_SIZE / 2;
 const STARTING_Y = 12 * TILE_SIZE + 2;
 
-// Vehicle types with their tile spans
-const VEHICLE_TYPES = {
-  tiny: ['motorcycle'], // Very small, fast
-  small: ['car-small'], // 1 tile
-  medium: ['car', 'car-wide'], // ~1.25-2 tiles
-  large: ['truck', 'truck-long'], // 2-3 tiles
+// Turtle dive phases with durations
+const DIVE_PHASES = {
+  surface: { duration: 4000, next: 'diving' as const },
+  diving: { duration: 800, next: 'submerged' as const },
+  submerged: { duration: 2000, next: 'rising' as const },
+  rising: { duration: 800, next: 'surface' as const },
 };
 
 const getRandomVehicleType = (level: number, laneIndex: number, objectIndex: number): string => {
   const seed = laneIndex * 7 + level * 13 + objectIndex * 11;
   
   if (level <= 2) {
-    // Levels 1-2: mostly small and medium vehicles, occasional motorcycle
     const types = ['car-small', 'car-small', 'car', 'car-wide', 'motorcycle'];
     return types[seed % types.length];
   } else {
-    // Level 3+: include some large vehicles and more motorcycles
     const types = ['car-small', 'car', 'car-wide', 'truck', 'truck-long', 'motorcycle', 'motorcycle'];
     return types[seed % types.length];
   }
@@ -44,29 +42,23 @@ const createLaneObjects = (laneConfig: typeof LANES_CONFIG[number], level: numbe
   const objects: GameObject[] = [];
   const isRoad = laneConfig.type === 'road';
   
-  // More spacing on level 1, decreases with level
-  const baseSpacing = isRoad ? (level === 1 ? 340 : 280) : 160; // Tighter water platform spacing
-  const spacingReduction = Math.min((level - 1) * 25, 80); // Cap reduction
+  const baseSpacing = isRoad ? (level === 1 ? 340 : 280) : 160;
+  const spacingReduction = Math.min((level - 1) * 25, 80);
   const spacing = Math.max(baseSpacing - spacingReduction, isRoad ? 160 : 120);
   
   const numObjects = Math.ceil((GAME_WIDTH + spacing * 2) / spacing);
-  const speedMultiplier = 1 + (level - 1) * 0.12; // Slightly slower speed increase
+  const speedMultiplier = 1 + (level - 1) * 0.12;
 
   for (let i = 0; i < numObjects; i++) {
     const isTurtle = laneConfig.objectType === 'turtle';
     
-    // For road lanes, pick varied vehicle types
     let objectType = laneConfig.objectType;
     if (isRoad) {
       objectType = getRandomVehicleType(level, laneConfig.y, i);
     }
     
     const objectWidth = OBJECT_WIDTHS[objectType] || 60;
-    
-    // Add some randomness to spacing for variety
     const randomOffset = isRoad ? (Math.sin(i * 3.7 + laneConfig.y) * 30) : 0;
-    
-    // Motorcycles are faster
     const speedBonus = objectType === 'motorcycle' ? 1.8 : 1;
     
     objects.push({
@@ -78,12 +70,27 @@ const createLaneObjects = (laneConfig: typeof LANES_CONFIG[number], level: numbe
       direction: laneConfig.direction || 1,
       type: objectType,
       isDiving: false,
-      diveTimer: isTurtle ? Math.random() * 3000 + 2000 : undefined,
-      colorVariant: Math.floor(Math.random() * 4), // Fixed color per vehicle
+      divePhase: isTurtle ? 'surface' : undefined,
+      diveTimer: isTurtle ? Math.random() * 2000 + 2000 : undefined,
+      colorVariant: Math.floor(Math.random() * 4),
     });
   }
 
   return objects;
+};
+
+const createPowerUp = (): PowerUp | null => {
+  if (Math.random() > 0.3) return null; // 30% chance to spawn
+  
+  const safeZoneY = 6 * TILE_SIZE;
+  const type = Math.random() > 0.7 ? 'extraLife' : 'invincibility';
+  
+  return {
+    x: Math.random() * (GAME_WIDTH - 30) + 15,
+    y: safeZoneY + 5,
+    type,
+    collected: false,
+  };
 };
 
 export const useGameLogic = () => {
@@ -102,6 +109,9 @@ export const useGameLogic = () => {
   const [homeSpots, setHomeSpots] = useState<HomeSpot[]>(HOME_SPOTS.map(h => ({ ...h })));
   const [isGameOver, setIsGameOver] = useState(false);
   const [highestRow, setHighestRow] = useState(12);
+  const [powerUp, setPowerUp] = useState<PowerUp | null>(null);
+  const [isInvincible, setIsInvincible] = useState(false);
+  const invincibleTimerRef = useRef<number | null>(null);
   const animationRef = useRef<number>();
   const lastTimeRef = useRef<number>(0);
 
@@ -115,6 +125,7 @@ export const useGameLogic = () => {
       objectType: config.objectType || '',
     }));
     setLanes(newLanes);
+    setPowerUp(createPowerUp());
   }, []);
 
   const resetPlayer = useCallback(() => {
@@ -143,10 +154,16 @@ export const useGameLogic = () => {
     setHomeSpots(HOME_SPOTS.map(h => ({ ...h })));
     setHighestRow(12);
     setIsGameOver(false);
+    setIsInvincible(false);
+    if (invincibleTimerRef.current) {
+      clearTimeout(invincibleTimerRef.current);
+    }
     initializeLanes(1);
   }, [initializeLanes]);
 
   const handleDeath = useCallback((type: 'splash' | 'crash') => {
+    if (isInvincible) return; // Invincibility protects from death
+    
     playSound(type);
     setPlayer(prev => {
       const newLives = prev.lives - 1;
@@ -166,7 +183,26 @@ export const useGameLogic = () => {
       };
     });
     setHighestRow(12);
-  }, [playSound]);
+  }, [playSound, isInvincible]);
+
+  const collectPowerUp = useCallback(() => {
+    if (!powerUp || powerUp.collected) return;
+    
+    setPowerUp(prev => prev ? { ...prev, collected: true } : null);
+    playSound('victory');
+    
+    if (powerUp.type === 'extraLife') {
+      setPlayer(prev => ({ ...prev, lives: Math.min(prev.lives + 1, 5) }));
+    } else if (powerUp.type === 'invincibility') {
+      setIsInvincible(true);
+      if (invincibleTimerRef.current) {
+        clearTimeout(invincibleTimerRef.current);
+      }
+      invincibleTimerRef.current = window.setTimeout(() => {
+        setIsInvincible(false);
+      }, 5000);
+    }
+  }, [powerUp, playSound]);
 
   const checkHomeSpot = useCallback((playerX: number, playerY: number) => {
     if (playerY > TILE_SIZE) return false;
@@ -193,10 +229,10 @@ export const useGameLogic = () => {
         isMoving: false,
       }));
       setHighestRow(12);
+      setPowerUp(createPowerUp()); // Chance for new power-up
       return true;
     }
 
-    // Hit the edge or unfillable area
     handleDeath('splash');
     return true;
   }, [homeSpots, playSound, handleDeath]);
@@ -278,9 +314,6 @@ export const useGameLogic = () => {
       // Update lane objects with progressive speed based on player position
       setPlayer(currentPlayer => {
         const playerRow = Math.floor(currentPlayer.y / TILE_SIZE);
-        // Row 12 = start (0.3x), Row 0 = goal (1.0x)
-        // Speed ramps in 0.1x increments from 0.3 to 1.0
-        // Each ~1.7 rows adds 0.1x speed
         const progressToGoal = Math.max(0, Math.min(1, (12 - playerRow) / 12));
         const progressiveSpeedMultiplier = 0.3 + (progressToGoal * 0.7);
 
@@ -296,18 +329,20 @@ export const useGameLogic = () => {
               newX = GAME_WIDTH + 50;
             }
 
-            // Handle diving turtles
-            if (obj.type === 'turtle' && obj.diveTimer !== undefined) {
+            // Handle diving turtles with phases
+            if (obj.type === 'turtle' && obj.diveTimer !== undefined && obj.divePhase) {
               let newDiveTimer = obj.diveTimer - deltaTime;
+              let newDivePhase = obj.divePhase;
               let newIsDiving = obj.isDiving;
 
               if (newDiveTimer <= 0) {
-                newIsDiving = !newIsDiving;
-                // Dive for 1.5s, surface for 3-5s
-                newDiveTimer = newIsDiving ? 1500 : 3000 + Math.random() * 2000;
+                const phaseConfig = DIVE_PHASES[obj.divePhase];
+                newDivePhase = phaseConfig.next;
+                newDiveTimer = DIVE_PHASES[newDivePhase].duration + (newDivePhase === 'surface' ? Math.random() * 2000 : 0);
+                newIsDiving = newDivePhase === 'submerged';
               }
 
-              return { ...obj, x: newX, diveTimer: newDiveTimer, isDiving: newIsDiving };
+              return { ...obj, x: newX, diveTimer: newDiveTimer, divePhase: newDivePhase, isDiving: newIsDiving };
             }
 
             return { ...obj, x: newX };
@@ -356,6 +391,15 @@ export const useGameLogic = () => {
 
     if (!laneConfig) return;
 
+    // Check power-up collection (safe zone at row 6)
+    if (playerRow === 6 && powerUp && !powerUp.collected) {
+      const playerCenterX = player.x + PLAYER_SIZE / 2;
+      const distance = Math.abs(playerCenterX - (powerUp.x + 15));
+      if (distance < 30) {
+        collectPowerUp();
+      }
+    }
+
     // Check home spots
     if (laneConfig.type === 'home') {
       checkHomeSpot(player.x, player.y);
@@ -365,31 +409,29 @@ export const useGameLogic = () => {
     const lane = lanes.find(l => Math.floor(l.y / TILE_SIZE) === playerRow);
     if (!lane) return;
 
-    const playerLeft = player.x;
-    const playerRight = player.x + PLAYER_SIZE;
+    const playerLeft = player.x + 4; // Small inset for more forgiving collision
+    const playerRight = player.x + PLAYER_SIZE - 4;
     const playerCenterX = player.x + PLAYER_SIZE / 2;
 
     if (lane.type === 'road') {
-      // Check collision with cars/trucks
       for (const obj of lane.objects) {
-        if (playerRight > obj.x && playerLeft < obj.x + obj.width) {
+        if (playerRight > obj.x + 4 && playerLeft < obj.x + obj.width - 4) {
           handleDeath('crash');
           return;
         }
       }
     } else if (lane.type === 'water') {
-      // Must be on a log/turtle (not diving)
       let onPlatform = false;
       let platformSpeed = 0;
       let platformDirection = 0;
 
       for (const obj of lane.objects) {
-        const isOnObject = playerCenterX > obj.x && playerCenterX < obj.x + obj.width;
+        // More forgiving platform detection - use wider bounds
+        const isOnObject = playerCenterX >= obj.x - 5 && playerCenterX <= obj.x + obj.width + 5;
         
         if (isOnObject) {
-          // Check if turtle is diving
-          if (obj.type === 'turtle' && obj.isDiving) {
-            // Turtle is diving, player falls in water
+          // Check if turtle is fully submerged (diving/rising phases are still safe)
+          if (obj.type === 'turtle' && obj.divePhase === 'submerged') {
             handleDeath('splash');
             return;
           }
@@ -415,7 +457,7 @@ export const useGameLogic = () => {
         return { ...prev, x: newX, targetX: newX };
       });
     }
-  }, [player.x, player.y, player.isMoving, lanes, isGameOver, handleDeath, checkHomeSpot]);
+  }, [player.x, player.y, player.isMoving, lanes, isGameOver, handleDeath, checkHomeSpot, powerUp, collectPowerUp]);
 
   return {
     player,
@@ -423,6 +465,8 @@ export const useGameLogic = () => {
     homeSpots,
     level,
     isGameOver,
+    powerUp,
+    isInvincible,
     startGame,
     movePlayer,
   };
