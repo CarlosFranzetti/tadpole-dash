@@ -97,9 +97,9 @@ const Index = () => {
   const ASPECT_RATIO = 9 / 16;
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-black">
+    <div className="flex items-center justify-center min-h-screen w-full bg-black">
       <div 
-        className="relative flex flex-col items-center justify-start bg-gradient-to-b from-emerald-900 via-emerald-800 to-cyan-900 p-2 pt-8 overflow-hidden"
+        className="relative flex flex-col items-center justify-start bg-gradient-to-b from-emerald-900 via-emerald-800 to-cyan-900 p-2 pt-8 overflow-hidden mx-auto"
         style={{
           width: 'min(100vw, 100vh * 9 / 16)',
           height: 'min(100vh, 100vw * 16 / 9)',
@@ -107,7 +107,7 @@ const Index = () => {
           maxHeight: '100vh',
         }}
       >
-        <div className="flex flex-col items-center">
+        <div className="flex flex-col items-center w-full">
           <GameHUD lives={player.lives} score={player.score} level={level} />
           <div 
             className="relative transition-transform duration-75"
