@@ -11,8 +11,23 @@ interface GameCanvasProps {
   isInvincible?: boolean;
 }
 
+// Smaller frog size (8% reduction)
+const FROG_SCALE = 0.92;
+const FROG_SIZE = PLAYER_SIZE * FROG_SCALE;
+const FROG_OFFSET = (PLAYER_SIZE - FROG_SIZE) / 2;
+
+// Water sparkle state
+interface Sparkle {
+  x: number;
+  y: number;
+  life: number;
+  maxLife: number;
+}
+
 export const GameCanvas = ({ player, lanes, homeSpots, level, powerUp, isInvincible }: GameCanvasProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const sparklesRef = useRef<Sparkle[]>([]);
+  const frameCountRef = useRef(0);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -21,35 +36,52 @@ export const GameCanvas = ({ player, lanes, homeSpots, level, powerUp, isInvinci
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    frameCountRef.current++;
+    const frame = frameCountRef.current;
+
+    // Update sparkles
+    const waterLanes = lanes.filter(l => l.type === 'water');
+    sparklesRef.current = sparklesRef.current.filter(s => s.life > 0).map(s => ({ ...s, life: s.life - 1 }));
+    
+    // Spawn new sparkles occasionally
+    if (frame % 8 === 0 && waterLanes.length > 0) {
+      const lane = waterLanes[Math.floor(Math.random() * waterLanes.length)];
+      sparklesRef.current.push({
+        x: Math.random() * GAME_WIDTH,
+        y: lane.y + Math.random() * TILE_SIZE,
+        life: 15 + Math.floor(Math.random() * 20),
+        maxLife: 35,
+      });
+    }
+
     // Clear canvas
     ctx.fillStyle = COLORS.grass;
     ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
 
     // Draw lanes backgrounds
-    lanes.forEach(lane => {
+    lanes.forEach((lane, laneIndex) => {
       const laneY = lane.y;
       
       switch (lane.type) {
         case 'road':
           ctx.fillStyle = COLORS.road;
           ctx.fillRect(0, laneY, GAME_WIDTH, TILE_SIZE);
-          // Road markings
-          ctx.fillStyle = '#ffffff';
-          for (let x = 10; x < GAME_WIDTH; x += 60) {
-            ctx.fillRect(x, laneY + TILE_SIZE / 2 - 2, 30, 4);
+          // Alternating road markings by row
+          ctx.fillStyle = '#ffff00';
+          if (laneIndex % 2 === 0) {
+            // Dashed center line
+            for (let x = 10; x < GAME_WIDTH; x += 50) {
+              ctx.fillRect(x, laneY + TILE_SIZE / 2 - 1, 25, 2);
+            }
+          } else {
+            // Solid edge lines
+            ctx.fillRect(0, laneY + 2, GAME_WIDTH, 2);
+            ctx.fillRect(0, laneY + TILE_SIZE - 4, GAME_WIDTH, 2);
           }
           break;
         case 'water':
           ctx.fillStyle = COLORS.water;
           ctx.fillRect(0, laneY, GAME_WIDTH, TILE_SIZE);
-          // Water ripples
-          ctx.strokeStyle = 'rgba(100, 180, 255, 0.3)';
-          ctx.lineWidth = 2;
-          for (let x = 0; x < GAME_WIDTH; x += 40) {
-            ctx.beginPath();
-            ctx.arc(x + Math.sin(Date.now() / 500 + x) * 5, laneY + TILE_SIZE / 2, 8, 0, Math.PI);
-            ctx.stroke();
-          }
           break;
         case 'safe':
           ctx.fillStyle = COLORS.grass;
@@ -68,26 +100,52 @@ export const GameCanvas = ({ player, lanes, homeSpots, level, powerUp, isInvinci
       }
     });
 
-    // Draw home spots
+    // Draw water sparkles (pixel effect)
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+    sparklesRef.current.forEach(sparkle => {
+      const alpha = sparkle.life / sparkle.maxLife;
+      ctx.globalAlpha = alpha * 0.8;
+      // Draw as small pixel cluster
+      ctx.fillRect(Math.floor(sparkle.x), Math.floor(sparkle.y), 2, 1);
+      ctx.fillRect(Math.floor(sparkle.x) + 1, Math.floor(sparkle.y) + 1, 1, 1);
+    });
+    ctx.globalAlpha = 1.0;
+
+    // Draw home spots (lily pads)
     homeSpots.forEach(spot => {
+      const centerX = spot.x + 20;
+      const centerY = 20;
+      
       if (spot.filled) {
-        // Filled with frog
-        ctx.fillStyle = COLORS.lilypad;
-        ctx.beginPath();
-        ctx.ellipse(spot.x + 20, 20, 18, 14, 0, 0, Math.PI * 2);
-        ctx.fill();
+        // Filled lily pad with frog
+        // Pad base
+        ctx.fillStyle = '#2d8a2d';
+        ctx.fillRect(centerX - 16, centerY - 12, 32, 24);
+        // Pad details (V notch)
+        ctx.fillStyle = COLORS.water;
+        ctx.fillRect(centerX - 2, centerY - 12, 4, 8);
+        // Pad highlights
+        ctx.fillStyle = '#3da33d';
+        ctx.fillRect(centerX - 12, centerY - 8, 8, 4);
+        ctx.fillRect(centerX + 4, centerY - 8, 8, 4);
         // Mini frog
         ctx.fillStyle = COLORS.player;
-        ctx.fillRect(spot.x + 12, 12, 16, 16);
+        ctx.fillRect(centerX - 6, centerY - 4, 12, 10);
+        ctx.fillStyle = '#5a9e45';
+        ctx.fillRect(centerX - 4, centerY - 6, 3, 3);
+        ctx.fillRect(centerX + 1, centerY - 6, 3, 3);
       } else {
         // Empty lily pad
         ctx.fillStyle = COLORS.home;
-        ctx.beginPath();
-        ctx.ellipse(spot.x + 20, 20, 18, 14, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = '#2d7a2d';
-        ctx.lineWidth = 2;
-        ctx.stroke();
+        ctx.fillRect(centerX - 16, centerY - 12, 32, 24);
+        // V notch
+        ctx.fillStyle = COLORS.water;
+        ctx.fillRect(centerX - 2, centerY - 12, 4, 8);
+        // Pad texture
+        ctx.fillStyle = '#2d7a2d';
+        ctx.fillRect(centerX - 12, centerY - 6, 6, 3);
+        ctx.fillRect(centerX + 6, centerY - 6, 6, 3);
+        ctx.fillRect(centerX - 8, centerY + 2, 16, 2);
       }
     });
 
@@ -104,150 +162,226 @@ export const GameCanvas = ({ player, lanes, homeSpots, level, powerUp, isInvinci
         
         switch (obj.type) {
           case 'motorcycle':
-            // Small fast motorcycle - harder to see
+            // Detailed pixel motorcycle
             const motoColors = ['#424242', '#616161', '#757575', '#5d4037'];
             ctx.fillStyle = motoColors[colorVariant % motoColors.length];
-            // Body
-            ctx.fillRect(x + 4, y + 12, obj.width - 8, h - 24);
-            // Wheels
+            // Frame
+            ctx.fillRect(x + 6, y + 14, obj.width - 12, h - 28);
+            // Engine block
             ctx.fillStyle = '#1a1a1a';
-            ctx.beginPath();
-            ctx.arc(x + 6, y + h / 2, 5, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.beginPath();
-            ctx.arc(x + obj.width - 6, y + h / 2, 5, 0, Math.PI * 2);
-            ctx.fill();
-            // Rider helmet
-            ctx.fillStyle = '#ffeb3b';
-            ctx.fillRect(x + 10, y + 8, 8, 8);
-            ctx.fillRect(x + 10, y + h - 16, 8, 8);
+            ctx.fillRect(x + 8, y + 16, 6, 6);
+            // Wheels
+            ctx.fillRect(x + 2, y + h / 2 - 4, 6, 8);
+            ctx.fillRect(x + obj.width - 8, y + h / 2 - 4, 6, 8);
+            // Wheel spokes
+            ctx.fillStyle = '#666666';
+            ctx.fillRect(x + 4, y + h / 2 - 1, 2, 2);
+            ctx.fillRect(x + obj.width - 6, y + h / 2 - 1, 2, 2);
+            // Rider
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fillRect(x + 10, y + 8, 6, 10);
+            // Helmet
+            ctx.fillStyle = ['#ffeb3b', '#e91e63', '#00bcd4', '#ff5722'][colorVariant % 4];
+            ctx.fillRect(x + 10, y + 4, 6, 6);
             break;
 
           case 'car-small':
-            // Small compact car (1 tile)
+            // Detailed pixel compact car
             const smallCarColors = ['#9c27b0', '#00bcd4', '#4caf50', '#ff5722'];
-            const smallCarRoofColors = ['#7b1fa2', '#0097a7', '#388e3c', '#e64a19'];
             ctx.fillStyle = smallCarColors[colorVariant % smallCarColors.length];
-            ctx.fillRect(x + 2, y + 6, obj.width - 4, h - 12);
-            // Roof
-            ctx.fillStyle = smallCarRoofColors[colorVariant % smallCarRoofColors.length];
-            ctx.fillRect(x + 8, y + 10, obj.width - 16, h - 20);
+            // Body
+            ctx.fillRect(x + 2, y + 8, obj.width - 4, h - 16);
+            // Roof (darker)
+            ctx.fillStyle = ['#7b1fa2', '#0097a7', '#388e3c', '#e64a19'][colorVariant % 4];
+            ctx.fillRect(x + 8, y + 12, obj.width - 16, h - 24);
             // Windows
             ctx.fillStyle = '#87ceeb';
-            ctx.fillRect(x + 10, y + 12, 8, h - 24);
-            ctx.fillRect(x + 22, y + 12, 6, h - 24);
+            ctx.fillRect(x + 10, y + 14, 6, h - 28);
+            ctx.fillRect(x + 20, y + 14, 6, h - 28);
+            // Headlights
+            ctx.fillStyle = '#ffff99';
+            ctx.fillRect(x + obj.width - 4, y + 12, 2, 4);
+            ctx.fillRect(x + obj.width - 4, y + h - 16, 2, 4);
+            // Taillights
+            ctx.fillStyle = '#ff0000';
+            ctx.fillRect(x + 2, y + 12, 2, 4);
+            ctx.fillRect(x + 2, y + h - 16, 2, 4);
             // Wheels
             ctx.fillStyle = '#1a1a1a';
-            ctx.fillRect(x + 4, y + 2, 8, 5);
-            ctx.fillRect(x + 4, y + h - 7, 8, 5);
-            ctx.fillRect(x + obj.width - 12, y + 2, 8, 5);
-            ctx.fillRect(x + obj.width - 12, y + h - 7, 8, 5);
+            ctx.fillRect(x + 6, y + 4, 6, 4);
+            ctx.fillRect(x + 6, y + h - 8, 6, 4);
+            ctx.fillRect(x + obj.width - 12, y + 4, 6, 4);
+            ctx.fillRect(x + obj.width - 12, y + h - 8, 6, 4);
             break;
 
           case 'car':
-            // Standard car
+            // Standard detailed car
             const carColors = [COLORS.car1, COLORS.car2, '#8bc34a', '#ff9800'];
             ctx.fillStyle = carColors[colorVariant % carColors.length];
-            ctx.fillRect(x, y + 4, obj.width, h - 8);
+            // Body
+            ctx.fillRect(x + 2, y + 6, obj.width - 4, h - 12);
+            // Roof
+            ctx.fillStyle = ['#c62828', '#1565c0', '#689f38', '#ef6c00'][colorVariant % 4];
+            ctx.fillRect(x + 12, y + 10, obj.width - 24, h - 20);
             // Windows
             ctx.fillStyle = '#87ceeb';
-            ctx.fillRect(x + 10, y + 8, 15, h - 16);
-            ctx.fillRect(x + 30, y + 8, 12, h - 16);
+            ctx.fillRect(x + 14, y + 12, 10, h - 24);
+            ctx.fillRect(x + 28, y + 12, 8, h - 24);
+            // Front bumper detail
+            ctx.fillStyle = '#424242';
+            ctx.fillRect(x + obj.width - 6, y + 8, 4, h - 16);
+            // Headlights
+            ctx.fillStyle = '#ffff99';
+            ctx.fillRect(x + obj.width - 4, y + 10, 2, 4);
+            ctx.fillRect(x + obj.width - 4, y + h - 14, 2, 4);
+            // Taillights
+            ctx.fillStyle = '#ff0000';
+            ctx.fillRect(x + 2, y + 10, 2, 4);
+            ctx.fillRect(x + 2, y + h - 14, 2, 4);
             // Wheels
             ctx.fillStyle = '#1a1a1a';
-            ctx.fillRect(x + 5, y, 10, 6);
-            ctx.fillRect(x + 5, y + h - 6, 10, 6);
-            ctx.fillRect(x + obj.width - 15, y, 10, 6);
-            ctx.fillRect(x + obj.width - 15, y + h - 6, 10, 6);
+            ctx.fillRect(x + 6, y + 2, 8, 5);
+            ctx.fillRect(x + 6, y + h - 7, 8, 5);
+            ctx.fillRect(x + obj.width - 14, y + 2, 8, 5);
+            ctx.fillRect(x + obj.width - 14, y + h - 7, 8, 5);
+            // Hubcaps
+            ctx.fillStyle = '#888888';
+            ctx.fillRect(x + 8, y + 3, 4, 3);
+            ctx.fillRect(x + 8, y + h - 6, 4, 3);
             break;
 
           case 'car-wide':
-            // Wide SUV/van style (2 tiles)
+            // Wide SUV/van with detail
             const wideCarColors = ['#795548', '#607d8b', '#3f51b5', '#009688'];
             ctx.fillStyle = wideCarColors[colorVariant % wideCarColors.length];
-            ctx.fillRect(x, y + 2, obj.width, h - 4);
+            // Body
+            ctx.fillRect(x + 2, y + 4, obj.width - 4, h - 8);
             // Roof rack
             ctx.fillStyle = '#424242';
-            ctx.fillRect(x + 10, y, obj.width - 20, 4);
+            ctx.fillRect(x + 12, y + 2, obj.width - 24, 3);
             // Windows
             ctx.fillStyle = '#87ceeb';
-            ctx.fillRect(x + 8, y + 6, 18, h - 12);
-            ctx.fillRect(x + 30, y + 6, 18, h - 12);
-            ctx.fillRect(x + 52, y + 6, 18, h - 12);
+            ctx.fillRect(x + 10, y + 8, 14, h - 16);
+            ctx.fillRect(x + 28, y + 8, 14, h - 16);
+            ctx.fillRect(x + 46, y + 8, 14, h - 16);
+            // Window frames
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fillRect(x + 24, y + 8, 4, h - 16);
+            ctx.fillRect(x + 42, y + 8, 4, h - 16);
+            // Headlights
+            ctx.fillStyle = '#ffff99';
+            ctx.fillRect(x + obj.width - 4, y + 8, 2, 6);
+            ctx.fillRect(x + obj.width - 4, y + h - 14, 2, 6);
+            // Taillights
+            ctx.fillStyle = '#ff0000';
+            ctx.fillRect(x + 2, y + 8, 2, 6);
+            ctx.fillRect(x + 2, y + h - 14, 2, 6);
             // Wheels
             ctx.fillStyle = '#1a1a1a';
-            ctx.fillRect(x + 6, y - 2, 14, 6);
-            ctx.fillRect(x + 6, y + h - 4, 14, 6);
-            ctx.fillRect(x + obj.width - 20, y - 2, 14, 6);
-            ctx.fillRect(x + obj.width - 20, y + h - 4, 14, 6);
+            ctx.fillRect(x + 8, y, 10, 5);
+            ctx.fillRect(x + 8, y + h - 5, 10, 5);
+            ctx.fillRect(x + obj.width - 18, y, 10, 5);
+            ctx.fillRect(x + obj.width - 18, y + h - 5, 10, 5);
             break;
 
           case 'truck':
-            // Standard truck
+            // Detailed truck
+            // Cab
             ctx.fillStyle = COLORS.truck;
-            ctx.fillRect(x, y + 2, 25, h - 4);
-            // Truck cargo
-            ctx.fillStyle = '#d4a853';
-            ctx.fillRect(x + 25, y, obj.width - 25, h);
-            // Windows
+            ctx.fillRect(x + 2, y + 4, 22, h - 8);
+            // Cab window
             ctx.fillStyle = '#87ceeb';
-            ctx.fillRect(x + 5, y + 6, 12, h - 14);
+            ctx.fillRect(x + 6, y + 8, 10, h - 18);
+            // Cargo
+            ctx.fillStyle = '#d4a853';
+            ctx.fillRect(x + 24, y + 2, obj.width - 26, h - 4);
+            // Cargo detail lines
+            ctx.fillStyle = '#c49843';
+            ctx.fillRect(x + 34, y + 4, 2, h - 8);
+            ctx.fillRect(x + 50, y + 4, 2, h - 8);
+            ctx.fillRect(x + 66, y + 4, 2, h - 8);
+            // Headlight
+            ctx.fillStyle = '#ffff99';
+            ctx.fillRect(x + obj.width - 4, y + 10, 2, 4);
+            ctx.fillRect(x + obj.width - 4, y + h - 14, 2, 4);
+            // Taillight
+            ctx.fillStyle = '#ff0000';
+            ctx.fillRect(x + 2, y + 10, 2, 4);
+            ctx.fillRect(x + 2, y + h - 14, 2, 4);
             // Wheels
             ctx.fillStyle = '#1a1a1a';
-            ctx.fillRect(x + 5, y - 2, 12, 6);
-            ctx.fillRect(x + 5, y + h - 4, 12, 6);
-            ctx.fillRect(x + obj.width - 20, y - 2, 12, 6);
-            ctx.fillRect(x + obj.width - 20, y + h - 4, 12, 6);
+            ctx.fillRect(x + 6, y, 10, 5);
+            ctx.fillRect(x + 6, y + h - 5, 10, 5);
+            ctx.fillRect(x + obj.width - 18, y, 10, 5);
+            ctx.fillRect(x + obj.width - 18, y + h - 5, 10, 5);
             break;
 
           case 'truck-long':
-            // Long semi truck (3 tiles)
+            // Long semi truck with detail
+            // Cab
             ctx.fillStyle = '#c62828';
-            ctx.fillRect(x, y + 2, 30, h - 4);
-            // Trailer
-            ctx.fillStyle = '#37474f';
-            ctx.fillRect(x + 30, y - 2, obj.width - 30, h + 4);
-            // Trailer stripes
-            ctx.fillStyle = '#546e7a';
-            for (let stripe = 0; stripe < 3; stripe++) {
-              ctx.fillRect(x + 40 + stripe * 25, y + 2, 15, h - 4);
-            }
+            ctx.fillRect(x + 2, y + 4, 26, h - 8);
+            // Cab detail
+            ctx.fillStyle = '#b71c1c';
+            ctx.fillRect(x + 4, y + 6, 10, h - 12);
             // Cab windows
             ctx.fillStyle = '#87ceeb';
-            ctx.fillRect(x + 5, y + 6, 16, h - 14);
-            // Wheels (more wheels for long truck)
+            ctx.fillRect(x + 6, y + 8, 6, h - 18);
+            // Trailer
+            ctx.fillStyle = '#37474f';
+            ctx.fillRect(x + 28, y, obj.width - 30, h);
+            // Trailer stripes
+            ctx.fillStyle = '#546e7a';
+            for (let stripe = 0; stripe < 4; stripe++) {
+              ctx.fillRect(x + 38 + stripe * 22, y + 3, 12, h - 6);
+            }
+            // Trailer rivets
+            ctx.fillStyle = '#263238';
+            for (let rivet = 0; rivet < 6; rivet++) {
+              ctx.fillRect(x + 32 + rivet * 15, y + 2, 2, 2);
+              ctx.fillRect(x + 32 + rivet * 15, y + h - 4, 2, 2);
+            }
+            // Headlight
+            ctx.fillStyle = '#ffff99';
+            ctx.fillRect(x + obj.width - 4, y + 8, 2, 4);
+            ctx.fillRect(x + obj.width - 4, y + h - 12, 2, 4);
+            // Wheels (more for long truck)
             ctx.fillStyle = '#1a1a1a';
-            ctx.fillRect(x + 6, y - 2, 12, 6);
-            ctx.fillRect(x + 6, y + h - 4, 12, 6);
-            ctx.fillRect(x + 50, y - 2, 12, 6);
-            ctx.fillRect(x + 50, y + h - 4, 12, 6);
-            ctx.fillRect(x + obj.width - 25, y - 2, 12, 6);
-            ctx.fillRect(x + obj.width - 25, y + h - 4, 12, 6);
+            ctx.fillRect(x + 8, y, 10, 5);
+            ctx.fillRect(x + 8, y + h - 5, 10, 5);
+            ctx.fillRect(x + 48, y, 10, 5);
+            ctx.fillRect(x + 48, y + h - 5, 10, 5);
+            ctx.fillRect(x + obj.width - 22, y, 10, 5);
+            ctx.fillRect(x + obj.width - 22, y + h - 5, 10, 5);
             break;
 
           case 'log-short':
           case 'log-medium':
           case 'log-long':
-            // Log
+            // Detailed pixel log
+            // Main bark
             ctx.fillStyle = COLORS.log;
-            ctx.fillRect(x, y + 4, obj.width, h - 8);
-            // Log ends
+            ctx.fillRect(x + 4, y + 6, obj.width - 8, h - 12);
+            // Darker bark edges
             ctx.fillStyle = '#6d5a4e';
-            ctx.beginPath();
-            ctx.ellipse(x + 4, y + h / 2, 4, (h - 8) / 2, 0, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.beginPath();
-            ctx.ellipse(x + obj.width - 4, y + h / 2, 4, (h - 8) / 2, 0, 0, Math.PI * 2);
-            ctx.fill();
-            // Wood grain
-            ctx.strokeStyle = '#7d6e5e';
-            ctx.lineWidth = 1;
-            for (let lx = x + 15; lx < x + obj.width - 15; lx += 20) {
-              ctx.beginPath();
-              ctx.moveTo(lx, y + 8);
-              ctx.lineTo(lx + 5, y + h - 8);
-              ctx.stroke();
+            ctx.fillRect(x + 2, y + 8, 4, h - 16);
+            ctx.fillRect(x + obj.width - 6, y + 8, 4, h - 16);
+            // Log ends (tree rings effect)
+            ctx.fillStyle = '#8d7a6e';
+            ctx.fillRect(x, y + 10, 4, h - 20);
+            ctx.fillRect(x + obj.width - 4, y + 10, 4, h - 20);
+            ctx.fillStyle = '#a08878';
+            ctx.fillRect(x + 1, y + 12, 2, h - 24);
+            ctx.fillRect(x + obj.width - 3, y + 12, 2, h - 24);
+            // Bark texture (pixel knots)
+            ctx.fillStyle = '#7d6e5e';
+            for (let lx = x + 12; lx < x + obj.width - 12; lx += 18) {
+              ctx.fillRect(lx, y + 10, 3, 2);
+              ctx.fillRect(lx + 6, y + h - 12, 3, 2);
             }
+            // Highlights
+            ctx.fillStyle = '#a08878';
+            ctx.fillRect(x + 8, y + 6, obj.width - 16, 2);
             break;
 
           case 'turtle':
@@ -269,7 +403,6 @@ export const GameCanvas = ({ player, lanes, homeSpots, level, powerUp, isInvinci
                 scale = 1.0;
                 break;
               case 'diving':
-                // Animate from surface to submerged
                 diveProgress = obj.diveTimer ? 1 - (obj.diveTimer / 800) : 0;
                 opacity = 1.0 - (diveProgress * 0.7);
                 yOffset = diveProgress * 6;
@@ -282,7 +415,6 @@ export const GameCanvas = ({ player, lanes, homeSpots, level, powerUp, isInvinci
                 scale = 0.7;
                 break;
               case 'rising':
-                // Animate from submerged to surface
                 diveProgress = obj.diveTimer ? obj.diveTimer / 800 : 0;
                 opacity = 0.3 + ((1 - diveProgress) * 0.7);
                 yOffset = diveProgress * 6;
@@ -294,31 +426,45 @@ export const GameCanvas = ({ player, lanes, homeSpots, level, powerUp, isInvinci
             
             for (let i = 0; i < turtleCount; i++) {
               const tx = x + i * turtleSpacing + 5;
-              const shellRadiusX = 12 * scale;
-              const shellRadiusY = 10 * scale;
+              const tcx = tx + 12;
+              const tcy = y + h / 2 + yOffset;
+              const shellW = Math.round(20 * scale);
+              const shellH = Math.round(16 * scale);
               
-              // Shell
-              ctx.fillStyle = divePhase === 'submerged' ? '#2d5a5a' : COLORS.turtle;
-              ctx.beginPath();
-              ctx.ellipse(tx + 12, y + h / 2 + yOffset, shellRadiusX, shellRadiusY, 0, 0, Math.PI * 2);
-              ctx.fill();
+              // Shell base
+              ctx.fillStyle = divePhase === 'submerged' ? '#2d5a5a' : '#2e7d32';
+              ctx.fillRect(tcx - shellW / 2, tcy - shellH / 2, shellW, shellH);
               
               if (divePhase === 'surface' || divePhase === 'rising') {
-                // Shell pattern
+                // Shell pattern (hexagonal-ish)
                 ctx.fillStyle = '#388e3c';
-                ctx.beginPath();
-                ctx.ellipse(tx + 12, y + h / 2 + yOffset, 8 * scale, 6 * scale, 0, 0, Math.PI * 2);
-                ctx.fill();
+                ctx.fillRect(tcx - shellW / 2 + 2, tcy - shellH / 2 + 2, shellW - 4, shellH - 4);
+                // Pattern details
+                ctx.fillStyle = '#43a047';
+                ctx.fillRect(tcx - 4, tcy - 3, 8, 6);
+                ctx.fillRect(tcx - 6, tcy - 1, 4, 2);
+                ctx.fillRect(tcx + 2, tcy - 1, 4, 2);
+                // Shell edge highlights
+                ctx.fillStyle = '#4caf50';
+                ctx.fillRect(tcx - shellW / 2 + 2, tcy - shellH / 2, shellW - 4, 2);
+                
                 // Head
                 ctx.fillStyle = '#66bb6a';
-                ctx.fillRect(tx + 22, y + h / 2 - 4 + yOffset, 6 * scale, 8 * scale);
+                const headSize = Math.round(6 * scale);
+                ctx.fillRect(tcx + shellW / 2 - 2, tcy - headSize / 2, headSize, headSize);
+                // Eyes
+                ctx.fillStyle = '#1a1a1a';
+                ctx.fillRect(tcx + shellW / 2 + 2, tcy - 2, 2, 2);
+                ctx.fillRect(tcx + shellW / 2 + 2, tcy, 2, 2);
+                
                 // Flippers
                 ctx.fillStyle = '#4caf50';
-                const flipperSize = 6 * scale;
-                ctx.fillRect(tx + 4, y + 4 + yOffset, flipperSize, flipperSize);
-                ctx.fillRect(tx + 14, y + 4 + yOffset, flipperSize, flipperSize);
-                ctx.fillRect(tx + 4, y + h - 10 + yOffset, flipperSize, flipperSize);
-                ctx.fillRect(tx + 14, y + h - 10 + yOffset, flipperSize, flipperSize);
+                const flipperSize = Math.round(5 * scale);
+                // Front flippers
+                ctx.fillRect(tcx - 2, tcy - shellH / 2 - flipperSize + 2, flipperSize, flipperSize);
+                ctx.fillRect(tcx - 2, tcy + shellH / 2 - 2, flipperSize, flipperSize);
+                // Back flippers
+                ctx.fillRect(tcx - shellW / 2, tcy - 3, 4, 6);
               }
             }
             
@@ -339,50 +485,52 @@ export const GameCanvas = ({ player, lanes, homeSpots, level, powerUp, isInvinci
       ctx.save();
       
       if (powerUp.type === 'extraLife') {
-        // Heart shape for extra life
+        // Pixel heart for extra life
         ctx.fillStyle = '#e91e63';
-        ctx.beginPath();
-        ctx.moveTo(puX + 15, puY + 8 + pulse);
-        ctx.bezierCurveTo(puX + 15, puY + 5 + pulse, puX + 10, puY + pulse, puX + 5, puY + 5 + pulse);
-        ctx.bezierCurveTo(puX, puY + 10 + pulse, puX, puY + 18 + pulse, puX + 15, puY + 28 + pulse);
-        ctx.bezierCurveTo(puX + 30, puY + 18 + pulse, puX + 30, puY + 10 + pulse, puX + 25, puY + 5 + pulse);
-        ctx.bezierCurveTo(puX + 20, puY + pulse, puX + 15, puY + 5 + pulse, puX + 15, puY + 8 + pulse);
-        ctx.fill();
-        // Glow
-        ctx.shadowColor = '#e91e63';
-        ctx.shadowBlur = 10;
-        ctx.fill();
+        const hx = Math.floor(puX + 7);
+        const hy = Math.floor(puY + 5 + pulse);
+        // Heart shape in pixels
+        ctx.fillRect(hx + 2, hy, 4, 2);
+        ctx.fillRect(hx + 10, hy, 4, 2);
+        ctx.fillRect(hx, hy + 2, 8, 2);
+        ctx.fillRect(hx + 8, hy + 2, 8, 2);
+        ctx.fillRect(hx, hy + 4, 16, 2);
+        ctx.fillRect(hx + 2, hy + 6, 12, 2);
+        ctx.fillRect(hx + 4, hy + 8, 8, 2);
+        ctx.fillRect(hx + 6, hy + 10, 4, 2);
+        // Highlight
+        ctx.fillStyle = '#f48fb1';
+        ctx.fillRect(hx + 3, hy + 2, 2, 2);
       } else {
-        // Star shape for invincibility
+        // Pixel star for invincibility
         ctx.fillStyle = '#ffd700';
-        const centerX = puX + 15;
-        const centerY = puY + 15 + pulse;
-        const outerRadius = 12;
-        const innerRadius = 5;
-        
-        ctx.beginPath();
-        for (let i = 0; i < 10; i++) {
-          const radius = i % 2 === 0 ? outerRadius : innerRadius;
-          const angle = (i * Math.PI) / 5 - Math.PI / 2;
-          const px = centerX + Math.cos(angle) * radius;
-          const py = centerY + Math.sin(angle) * radius;
-          if (i === 0) ctx.moveTo(px, py);
-          else ctx.lineTo(px, py);
-        }
-        ctx.closePath();
-        ctx.fill();
-        // Glow
-        ctx.shadowColor = '#ffd700';
-        ctx.shadowBlur = 15;
-        ctx.fill();
+        const sx = Math.floor(puX + 7);
+        const sy = Math.floor(puY + 5 + pulse);
+        // Star shape in pixels
+        ctx.fillRect(sx + 6, sy, 4, 4);
+        ctx.fillRect(sx + 4, sy + 4, 8, 2);
+        ctx.fillRect(sx, sy + 6, 16, 4);
+        ctx.fillRect(sx + 2, sy + 10, 4, 2);
+        ctx.fillRect(sx + 10, sy + 10, 4, 2);
+        ctx.fillRect(sx + 2, sy + 12, 2, 2);
+        ctx.fillRect(sx + 12, sy + 12, 2, 2);
+        // Highlight
+        ctx.fillStyle = '#ffeb3b';
+        ctx.fillRect(sx + 7, sy + 2, 2, 2);
       }
       
       ctx.restore();
     }
 
-    // Draw player (frog)
-    const px = Math.round(player.x);
-    const py = Math.round(player.y);
+    // Draw player (frog) - 8% smaller with idle animation
+    const px = Math.round(player.x + FROG_OFFSET);
+    const py = Math.round(player.y + FROG_OFFSET);
+    const fs = FROG_SIZE;
+    
+    // Idle animation: subtle breathing every few frames
+    const breathFrame = Math.floor(frame / 12) % 4;
+    const breathOffset = breathFrame === 1 || breathFrame === 2 ? 1 : 0;
+    const eyeBlink = frame % 60 < 3; // Blink every 60 frames
 
     ctx.save();
     
@@ -390,46 +538,63 @@ export const GameCanvas = ({ player, lanes, homeSpots, level, powerUp, isInvinci
     if (isInvincible) {
       const glowPulse = Math.sin(Date.now() / 100) * 0.3 + 0.7;
       ctx.shadowColor = '#ffd700';
-      ctx.shadowBlur = 20 * glowPulse;
+      ctx.shadowBlur = 15 * glowPulse;
     }
     
     // Shadow
     ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-    ctx.beginPath();
-    ctx.ellipse(px + PLAYER_SIZE / 2, py + PLAYER_SIZE + 2, PLAYER_SIZE / 2 - 2, 6, 0, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.fillRect(px + 2, py + fs - 2, fs - 4, 4);
 
     // Body
     ctx.fillStyle = isInvincible ? '#ffd700' : COLORS.player;
-    ctx.fillRect(px + 4, py + 8, PLAYER_SIZE - 8, PLAYER_SIZE - 12);
-    ctx.fillRect(px + 4, py + 8, PLAYER_SIZE - 8, PLAYER_SIZE - 12);
+    ctx.fillRect(px + 4, py + 8 - breathOffset, fs - 8, fs - 12 + breathOffset);
     
     // Head
-    ctx.fillRect(px + 6, py + 2, PLAYER_SIZE - 12, 10);
+    ctx.fillRect(px + 6, py + 2, fs - 12, 8);
     
     // Eyes
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(px + 6, py, 8, 8);
-    ctx.fillRect(px + PLAYER_SIZE - 14, py, 8, 8);
-    
-    // Pupils
-    ctx.fillStyle = '#000000';
-    ctx.fillRect(px + 10, py + 2, 3, 4);
-    ctx.fillRect(px + PLAYER_SIZE - 12, py + 2, 3, 4);
+    if (eyeBlink) {
+      // Closed eyes
+      ctx.fillStyle = '#4a8e35';
+      ctx.fillRect(px + 5, py + 2, 6, 2);
+      ctx.fillRect(px + fs - 11, py + 2, 6, 2);
+    } else {
+      // Open eyes
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(px + 5, py, 7, 7);
+      ctx.fillRect(px + fs - 12, py, 7, 7);
+      // Pupils
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(px + 8, py + 2, 3, 4);
+      ctx.fillRect(px + fs - 10, py + 2, 3, 4);
+    }
+
+    // Spots on body
+    ctx.fillStyle = '#5a9e45';
+    ctx.fillRect(px + 8, py + 12, 4, 4);
+    ctx.fillRect(px + fs - 12, py + 14, 4, 4);
 
     // Front legs
     ctx.fillStyle = '#5a9e45';
-    ctx.fillRect(px, py + 12, 6, 8);
-    ctx.fillRect(px + PLAYER_SIZE - 6, py + 12, 6, 8);
+    ctx.fillRect(px, py + 10, 5, 7);
+    ctx.fillRect(px + fs - 5, py + 10, 5, 7);
 
     // Back legs
-    ctx.fillRect(px - 4, py + PLAYER_SIZE - 10, 10, 12);
-    ctx.fillRect(px + PLAYER_SIZE - 6, py + PLAYER_SIZE - 10, 10, 12);
+    ctx.fillRect(px - 3, py + fs - 10, 8, 10);
+    ctx.fillRect(px + fs - 5, py + fs - 10, 8, 10);
 
     // Feet
     ctx.fillStyle = '#4a8e35';
-    ctx.fillRect(px - 6, py + PLAYER_SIZE, 12, 4);
-    ctx.fillRect(px + PLAYER_SIZE - 6, py + PLAYER_SIZE, 12, 4);
+    ctx.fillRect(px - 4, py + fs - 2, 10, 3);
+    ctx.fillRect(px + fs - 6, py + fs - 2, 10, 3);
+    // Toe detail
+    ctx.fillStyle = '#3d7a32';
+    ctx.fillRect(px - 4, py + fs - 2, 2, 2);
+    ctx.fillRect(px, py + fs - 2, 2, 2);
+    ctx.fillRect(px + 4, py + fs - 2, 2, 2);
+    ctx.fillRect(px + fs - 6, py + fs - 2, 2, 2);
+    ctx.fillRect(px + fs - 2, py + fs - 2, 2, 2);
+    ctx.fillRect(px + fs + 2, py + fs - 2, 2, 2);
 
     ctx.restore();
 
