@@ -1,27 +1,36 @@
 export const GAME_WIDTH = 360;
-export const GAME_HEIGHT = 640;
 export const TILE_SIZE = 40;
 export const PLAYER_SIZE = 36;
+
+// Expanded board: start zone is 2 rows lower, with +1 water lane and +1 road lane.
+export const TOTAL_ROWS = 15;
+export const GAME_HEIGHT = TOTAL_ROWS * TILE_SIZE;
 
 export const LANES_CONFIG = [
   // Home spots row
   { type: 'home' as const, y: 0 },
-  // Water lanes (5 lanes) - slower base speeds for level 1
-  { type: 'water' as const, y: 1, speed: 0.8, direction: -1 as const, objectType: 'log-long' },
+
+  // Water lanes (6 lanes) - slower base speeds for level 1
+  { type: 'water' as const, y: 1, speed: 0.8, direction: -1 as const, objectType: 'log' },
   { type: 'water' as const, y: 2, speed: 1.0, direction: 1 as const, objectType: 'turtle' },
-  { type: 'water' as const, y: 3, speed: 0.6, direction: -1 as const, objectType: 'log-short' },
+  { type: 'water' as const, y: 3, speed: 0.6, direction: -1 as const, objectType: 'log' },
   { type: 'water' as const, y: 4, speed: 1.2, direction: 1 as const, objectType: 'turtle' },
-  { type: 'water' as const, y: 5, speed: 0.9, direction: -1 as const, objectType: 'log-medium' },
+  { type: 'water' as const, y: 5, speed: 0.9, direction: -1 as const, objectType: 'log' },
+  { type: 'water' as const, y: 6, speed: 1.1, direction: 1 as const, objectType: 'turtle' },
+
   // Safe zone
-  { type: 'safe' as const, y: 6 },
-  // Road lanes (5 lanes) - slower base speeds for level 1
-  { type: 'road' as const, y: 7, speed: 1.0, direction: 1 as const, objectType: 'car' },
-  { type: 'road' as const, y: 8, speed: 1.5, direction: -1 as const, objectType: 'truck' },
-  { type: 'road' as const, y: 9, speed: 0.8, direction: 1 as const, objectType: 'car' },
-  { type: 'road' as const, y: 10, speed: 1.2, direction: -1 as const, objectType: 'truck' },
-  { type: 'road' as const, y: 11, speed: 1.0, direction: 1 as const, objectType: 'car' },
-  // Starting safe zone
-  { type: 'safe' as const, y: 12 },
+  { type: 'safe' as const, y: 7 },
+
+  // Road lanes (6 lanes) - slower base speeds for level 1
+  { type: 'road' as const, y: 8, speed: 1.0, direction: 1 as const, objectType: 'car' },
+  { type: 'road' as const, y: 9, speed: 1.5, direction: -1 as const, objectType: 'truck' },
+  { type: 'road' as const, y: 10, speed: 0.8, direction: 1 as const, objectType: 'car' },
+  { type: 'road' as const, y: 11, speed: 1.2, direction: -1 as const, objectType: 'truck' },
+  { type: 'road' as const, y: 12, speed: 1.0, direction: 1 as const, objectType: 'car' },
+  { type: 'road' as const, y: 13, speed: 1.3, direction: -1 as const, objectType: 'car' },
+
+  // Starting safe zone (2 rows lower than before)
+  { type: 'safe' as const, y: 14 },
 ];
 
 export const HOME_SPOTS = [

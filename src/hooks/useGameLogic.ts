@@ -12,7 +12,11 @@ import {
 import { useSoundEffects } from './useSoundEffects';
 
 const STARTING_X = GAME_WIDTH / 2 - PLAYER_SIZE / 2;
-const STARTING_Y = 12 * TILE_SIZE + 2;
+
+// Derive rows from the lane config so adding rows stays consistent everywhere.
+const START_ROW = Math.max(...LANES_CONFIG.map(c => c.y));
+const MID_SAFE_ROW = LANES_CONFIG.find(c => c.type === 'safe' && c.y !== START_ROW)?.y ?? START_ROW;
+const STARTING_Y = START_ROW * TILE_SIZE + 2;
 
 // Turtle dive phases with durations
 // Note: surfaced + submerged pauses are intentionally longer (+18%) for readability.
@@ -23,9 +27,57 @@ const DIVE_PHASES = {
   rising: { duration: 800, next: 'surface' as const },
 };
 
+const LEVEL1_TURTLE_SUBMERGE_GRACE_MS = 200;
+
+const clampTile = (t: number) => Math.max(0, Math.min(Math.floor(GAME_WIDTH / TILE_SIZE) - 1, t));
+
+const getTileRange = (leftPx: number, rightPx: number) => {
+  // rightPx is exclusive-ish; subtract a tiny epsilon so exact edge aligns to the previous tile.
+  const start = clampTile(Math.floor(leftPx / TILE_SIZE));
+  const end = clampTile(Math.floor((rightPx - 0.0001) / TILE_SIZE));
+  return { start, end };
+};
+
+const rangesOverlap = (a: { start: number; end: number }, b: { start: number; end: number }) => a.start <= b.end && b.start <= a.end;
+
+const isTurtleSafeToStandOn = (obj: GameObject, level: number) => {
+  const phase = obj.divePhase || 'surface';
+  if (phase !== 'submerged') return true;
+
+  // Submerged turtles are water. On level 1, allow a small grace window at start/end of the submerged phase.
+  if (level !== 1) return false;
+
+  const remaining = obj.diveTimer ?? 0;
+  const dur = DIVE_PHASES.submerged.duration;
+  return remaining >= dur - LEVEL1_TURTLE_SUBMERGE_GRACE_MS || remaining <= LEVEL1_TURTLE_SUBMERGE_GRACE_MS;
+};
+
+const getWaterSupport = (player: Player, lane: Lane, level: number) => {
+  // Tile-based overlap: if frog touches ANY tile occupied by a platform, it's safe.
+  const frogRange = getTileRange(player.x, player.x + PLAYER_SIZE);
+
+  for (const obj of lane.objects) {
+    const platformRange = getTileRange(obj.x, obj.x + obj.width);
+    if (!rangesOverlap(frogRange, platformRange)) continue;
+
+    if (obj.type === 'turtle' && !isTurtleSafeToStandOn(obj, level)) {
+      // This platform is currently "water"; keep searching in case another platform overlaps too.
+      continue;
+    }
+
+    return {
+      supported: true,
+      carrySpeed: obj.speed,
+      carryDir: obj.direction,
+    };
+  }
+
+  return { supported: false, carrySpeed: 0, carryDir: 0 };
+};
+
 const getRandomVehicleType = (level: number, laneIndex: number, objectIndex: number): string => {
   const seed = laneIndex * 7 + level * 13 + objectIndex * 11;
-  
+
   if (level <= 2) {
     const types = ['car-small', 'car-small', 'car', 'car-wide', 'motorcycle'];
     return types[seed % types.length];
@@ -35,75 +87,108 @@ const getRandomVehicleType = (level: number, laneIndex: number, objectIndex: num
   }
 };
 
+const LOG_TYPES = ['log-short', 'log-medium', 'log-long'] as const;
+const pickLogType = () => LOG_TYPES[Math.floor(Math.random() * LOG_TYPES.length)];
+
 const createLaneObjects = (laneConfig: typeof LANES_CONFIG[number], level: number): GameObject[] => {
   if (laneConfig.type === 'safe' || laneConfig.type === 'home' || !laneConfig.objectType) {
     return [];
   }
 
-  const objects: GameObject[] = [];
   const isRoad = laneConfig.type === 'road';
   const isWater = laneConfig.type === 'water';
 
-  // Spacing rules:
-  // - Level 1 road: ensure at least ~2 tiles between vehicles (easier openings)
-  // - Water: dense platforms but never overlapping
-  const baseSpacing = isRoad ? (level === 1 ? 420 : 300) : 180;
-  const spacingReduction = isRoad ? Math.min((level - 1) * 30, 110) : Math.min((level - 1) * 15, 40);
+  // Road lanes: enforce big openings on level 1.
+  if (isRoad) {
+    const objects: GameObject[] = [];
 
-  const maxVehicleWidth = level <= 2 ? 80 : 120;
-  const minRoadGap = level === 1 ? TILE_SIZE * 2 : TILE_SIZE; // 2 tiles on L1
-  const minRoadSpacing = maxVehicleWidth + minRoadGap;
+    const baseSpacing = level === 1 ? 420 : 300;
+    const spacingReduction = Math.min((level - 1) * 30, 110);
 
-  const minWaterSpacing = 140;
+    const maxVehicleWidth = level <= 2 ? 80 : 120;
+    const minRoadGap = level === 1 ? TILE_SIZE * 2 : TILE_SIZE; // 2 tiles on L1
+    const minRoadSpacing = maxVehicleWidth + minRoadGap;
 
-  const spacing = isRoad
-    ? Math.max(baseSpacing - spacingReduction, minRoadSpacing)
-    : Math.max(baseSpacing - spacingReduction, minWaterSpacing);
+    const spacing = Math.max(baseSpacing - spacingReduction, minRoadSpacing);
+    const numObjects = Math.ceil((GAME_WIDTH + spacing * 2) / spacing);
+    const speedMultiplier = 1 + (level - 1) * 0.12;
 
-  const numObjects = Math.ceil((GAME_WIDTH + spacing * 2) / spacing);
-  const speedMultiplier = 1 + (level - 1) * 0.12;
+    for (let i = 0; i < numObjects; i++) {
+      const objectType = getRandomVehicleType(level, laneConfig.y, i);
+      const objectWidth = OBJECT_WIDTHS[objectType] || 60;
 
-  for (let i = 0; i < numObjects; i++) {
-    const isTurtle = laneConfig.objectType === 'turtle';
+      // IMPORTANT: don't add negative offsets on Level 1 roads (keeps guaranteed gaps)
+      const randomOffset = level === 1 ? 0 : Math.sin(i * 3.7 + laneConfig.y) * 30;
 
-    let objectType = laneConfig.objectType;
-    if (isRoad) {
-      objectType = getRandomVehicleType(level, laneConfig.y, i);
+      // Motorcycles are faster
+      const speedBonus = objectType === 'motorcycle' ? 1.8 : 1;
+
+      objects.push({
+        x: i * spacing - objectWidth + randomOffset,
+        y: laneConfig.y * TILE_SIZE,
+        width: objectWidth,
+        height: TILE_SIZE - 4,
+        speed: (laneConfig.speed || 1) * speedMultiplier * speedBonus,
+        direction: laneConfig.direction || 1,
+        type: objectType,
+        isDiving: false,
+        divePhase: undefined,
+        diveTimer: undefined,
+        colorVariant: Math.floor(Math.random() * 4),
+      });
     }
 
-    const objectWidth = OBJECT_WIDTHS[objectType] || 60;
-
-    // IMPORTANT: don't add negative offsets on Level 1 roads (keeps guaranteed gaps)
-    const randomOffset = isRoad ? (level === 1 ? 0 : (Math.sin(i * 3.7 + laneConfig.y) * 30)) : 0;
-
-    // Motorcycles are faster
-    const speedBonus = objectType === 'motorcycle' ? 1.8 : 1;
-
-    objects.push({
-      x: i * spacing - objectWidth + randomOffset,
-      y: laneConfig.y * TILE_SIZE,
-      width: objectWidth,
-      height: TILE_SIZE - 4,
-      speed: (laneConfig.speed || 1) * speedMultiplier * speedBonus,
-      direction: laneConfig.direction || 1,
-      type: objectType,
-      isDiving: false,
-      divePhase: isTurtle ? 'surface' : undefined,
-      // start in surface phase with a random offset so they don't all dive together
-      diveTimer: isTurtle ? (DIVE_PHASES.surface.duration * 0.4 + Math.random() * DIVE_PHASES.surface.duration * 0.6) : undefined,
-      colorVariant: Math.floor(Math.random() * 4),
-    });
+    return objects;
   }
 
-  return objects;
+  // Water lanes: never overlap, and logs vary length randomly.
+  if (isWater) {
+    const objects: GameObject[] = [];
+
+    const gap = level === 1 ? TILE_SIZE : Math.round(TILE_SIZE * 0.8);
+    const buffer = GAME_WIDTH + 240;
+
+    // Randomize phase so lanes don't look identical.
+    let x = -buffer + Math.random() * (gap * 2);
+    const speedMultiplier = 1 + (level - 1) * 0.12;
+
+    while (x < GAME_WIDTH + buffer) {
+      const isTurtle = laneConfig.objectType === 'turtle';
+      const objectType = isTurtle ? 'turtle' : pickLogType();
+      const objectWidth = OBJECT_WIDTHS[objectType] || 100;
+
+      objects.push({
+        x,
+        y: laneConfig.y * TILE_SIZE,
+        width: objectWidth,
+        height: TILE_SIZE - 4,
+        speed: (laneConfig.speed || 1) * speedMultiplier,
+        direction: laneConfig.direction || 1,
+        type: objectType,
+        isDiving: false,
+        divePhase: isTurtle ? 'surface' : undefined,
+        // Start offset so turtle groups don't sync
+        diveTimer: isTurtle
+          ? DIVE_PHASES.surface.duration * 0.4 + Math.random() * DIVE_PHASES.surface.duration * 0.6
+          : undefined,
+        colorVariant: Math.floor(Math.random() * 4),
+      });
+
+      x += objectWidth + gap;
+    }
+
+    return objects;
+  }
+
+  return [];
 };
 
 const createPowerUp = (): PowerUp | null => {
   if (Math.random() > 0.3) return null; // 30% chance to spawn
-  
-  const safeZoneY = 6 * TILE_SIZE;
+
+  const safeZoneY = MID_SAFE_ROW * TILE_SIZE;
   const type = Math.random() > 0.7 ? 'extraLife' : 'invincibility';
-  
+
   return {
     x: Math.random() * (GAME_WIDTH - 30) + 15,
     y: safeZoneY + 5,
@@ -124,15 +209,35 @@ export const useGameLogic = () => {
     targetX: STARTING_X,
     targetY: STARTING_Y,
   });
+  const playerRef = useRef<Player>({
+    x: STARTING_X,
+    y: STARTING_Y,
+    lives: 3,
+    score: 0,
+    isMoving: false,
+    targetX: STARTING_X,
+    targetY: STARTING_Y,
+  });
+
   const [lanes, setLanes] = useState<Lane[]>([]);
+  const lanesRef = useRef<Lane[]>([]);
+
   const [homeSpots, setHomeSpots] = useState<HomeSpot[]>(HOME_SPOTS.map(h => ({ ...h })));
   const [isGameOver, setIsGameOver] = useState(false);
-  const [highestRow, setHighestRow] = useState(12);
+  const [highestRow, setHighestRow] = useState(START_ROW);
   const [powerUp, setPowerUp] = useState<PowerUp | null>(null);
   const [isInvincible, setIsInvincible] = useState(false);
   const invincibleTimerRef = useRef<number | null>(null);
   const animationRef = useRef<number>();
   const lastTimeRef = useRef<number>(0);
+
+  useEffect(() => {
+    playerRef.current = player;
+  }, [player]);
+
+  useEffect(() => {
+    lanesRef.current = lanes;
+  }, [lanes]);
 
   const initializeLanes = useCallback((currentLevel: number) => {
     const newLanes: Lane[] = LANES_CONFIG.map(config => ({
