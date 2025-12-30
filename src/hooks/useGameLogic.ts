@@ -334,7 +334,8 @@ export const useGameLogic = () => {
       setPlayer(currentPlayer => {
         const playerRow = Math.floor(currentPlayer.y / TILE_SIZE);
         const progressToGoal = Math.max(0, Math.min(1, (12 - playerRow) / 12));
-        const progressiveSpeedMultiplier = 0.3 + (progressToGoal * 0.7);
+        // Base progressive speed + 3% global speed boost for smoother feel
+        const progressiveSpeedMultiplier = (0.3 + (progressToGoal * 0.7)) * 1.03;
 
         setLanes(prevLanes => prevLanes.map(lane => {
           if (lane.type === 'safe' || lane.type === 'home') return lane;
@@ -485,49 +486,65 @@ export const useGameLogic = () => {
         }
       }
     } else if (lane.type === 'water') {
-      // Platform collision is generous: if any of the frog overlaps the platform, it's safe.
-      const platformPlayerLeft = player.x + 2;
-      const platformPlayerRight = player.x + PLAYER_SIZE - 2;
+      // WATER COLLISION LOGIC:
+      // - Being ON a log or turtle = SAFE (frog lives)
+      // - Being IN the water (not on any platform) = DEATH
+      // - Turtles that are fully submerged = treated as water (death)
+      
+      // Use very generous overlap detection - if ANY part of frog touches platform, it's safe
+      const frogLeft = player.x;
+      const frogRight = player.x + PLAYER_SIZE;
 
-      let onPlatform = false;
+      let foundSafePlatform = false;
       let platformSpeed = 0;
       let platformDirection = 0;
 
       for (const obj of lane.objects) {
-        const overlaps = platformPlayerRight >= obj.x && platformPlayerLeft <= obj.x + obj.width;
+        // Check if frog overlaps this platform at all
+        const platformLeft = obj.x;
+        const platformRight = obj.x + obj.width;
+        
+        // Overlap check: frog and platform rectangles intersect
+        const overlaps = frogRight > platformLeft && frogLeft < platformRight;
+        
         if (!overlaps) continue;
 
-        // Logs are always safe when overlapping.
+        // For turtles, check if they're safe to stand on
         if (obj.type === 'turtle') {
           const phase = obj.divePhase || 'surface';
-
-          // Level 1 grace: allow the first/last quarter of submerged time ("2nd frame" feel)
+          
+          // Only FULLY submerged turtles are dangerous
+          // surface, diving, rising = all SAFE
           if (phase === 'submerged') {
+            // On level 1, give grace period at start/end of submerge
             const submergedDuration = DIVE_PHASES.submerged.duration;
             const remaining = obj.diveTimer ?? 0;
-            const grace = level === 1 && (remaining >= submergedDuration * 0.75 || remaining <= submergedDuration * 0.25);
-            if (!grace) {
-              handleDeath('splash');
-              return;
+            const isInGracePeriod = level === 1 && (remaining >= submergedDuration * 0.75 || remaining <= submergedDuration * 0.25);
+            
+            if (!isInGracePeriod) {
+              // Turtle is fully underwater - frog falls in
+              continue; // Check other platforms, maybe there's a log nearby
             }
           }
-          // diving + rising are safe, and (with grace) part of submerged can be safe on level 1
         }
 
-        onPlatform = true;
+        // Platform is safe! Frog survives
+        foundSafePlatform = true;
         platformSpeed = obj.speed;
         platformDirection = obj.direction;
         break;
       }
 
-      if (!onPlatform) {
+      if (!foundSafePlatform) {
+        // Frog is in the water - dies
         handleDeath('splash');
         return;
       }
 
-      // Move with platform
+      // Move frog with the platform
       setPlayer(prev => {
         const newX = prev.x + platformSpeed * platformDirection * 0.5;
+        // Carried off screen = death
         if (newX < -PLAYER_SIZE || newX > GAME_WIDTH) {
           handleDeath('splash');
           return prev;
