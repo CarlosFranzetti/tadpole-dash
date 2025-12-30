@@ -14,29 +14,67 @@ import { useSoundEffects } from './useSoundEffects';
 const STARTING_X = GAME_WIDTH / 2 - PLAYER_SIZE / 2;
 const STARTING_Y = 12 * TILE_SIZE + 2;
 
+// Vehicle types with their tile spans
+const VEHICLE_TYPES = {
+  small: ['car-small'], // 1 tile
+  medium: ['car', 'car-wide'], // ~1.25-2 tiles
+  large: ['truck', 'truck-long'], // 2-3 tiles
+};
+
+const getRandomVehicleType = (level: number, laneIndex: number): string => {
+  const seed = laneIndex * 7 + level * 13;
+  
+  if (level <= 2) {
+    // Levels 1-2: mostly small and medium vehicles
+    const types = [...VEHICLE_TYPES.small, ...VEHICLE_TYPES.small, ...VEHICLE_TYPES.medium];
+    return types[seed % types.length];
+  } else {
+    // Level 3+: include some large vehicles
+    const types = [...VEHICLE_TYPES.small, ...VEHICLE_TYPES.medium, ...VEHICLE_TYPES.large];
+    return types[seed % types.length];
+  }
+};
+
 const createLaneObjects = (laneConfig: typeof LANES_CONFIG[number], level: number): GameObject[] => {
   if (laneConfig.type === 'safe' || laneConfig.type === 'home' || !laneConfig.objectType) {
     return [];
   }
 
   const objects: GameObject[] = [];
-  const objectWidth = OBJECT_WIDTHS[laneConfig.objectType] || 60;
-  const spacing = laneConfig.type === 'water' ? 180 : 200;
+  const isRoad = laneConfig.type === 'road';
+  
+  // More spacing on level 1, decreases with level
+  const baseSpacing = isRoad ? 280 : 180;
+  const spacingReduction = Math.min((level - 1) * 25, 80); // Cap reduction
+  const spacing = Math.max(baseSpacing - spacingReduction, isRoad ? 160 : 140);
+  
   const numObjects = Math.ceil((GAME_WIDTH + spacing * 2) / spacing);
-  const speedMultiplier = 1 + (level - 1) * 0.15;
+  const speedMultiplier = 1 + (level - 1) * 0.12; // Slightly slower speed increase
 
   for (let i = 0; i < numObjects; i++) {
     const isTurtle = laneConfig.objectType === 'turtle';
+    
+    // For road lanes, pick varied vehicle types
+    let objectType = laneConfig.objectType;
+    if (isRoad) {
+      objectType = getRandomVehicleType(level, laneConfig.y + i);
+    }
+    
+    const objectWidth = OBJECT_WIDTHS[objectType] || 60;
+    
+    // Add some randomness to spacing for variety
+    const randomOffset = isRoad ? (Math.sin(i * 3.7 + laneConfig.y) * 30) : 0;
+    
     objects.push({
-      x: i * spacing - objectWidth,
+      x: i * spacing - objectWidth + randomOffset,
       y: laneConfig.y * TILE_SIZE,
       width: objectWidth,
       height: TILE_SIZE - 4,
       speed: (laneConfig.speed || 1) * speedMultiplier,
       direction: laneConfig.direction || 1,
-      type: laneConfig.objectType,
+      type: objectType,
       isDiving: false,
-      diveTimer: isTurtle ? Math.random() * 3000 + 2000 : undefined, // Random initial dive timer
+      diveTimer: isTurtle ? Math.random() * 3000 + 2000 : undefined,
     });
   }
 
@@ -235,21 +273,11 @@ export const useGameLogic = () => {
       // Update lane objects with progressive speed based on player position
       setPlayer(currentPlayer => {
         const playerRow = Math.floor(currentPlayer.y / TILE_SIZE);
-        // Row 12 = start (0.2x), Row 6 = middle (1x)
-        // Speed ramps in 0.2x increments: 0.2, 0.4, 0.6, 0.8, 1.0
-        // Rows 12-11: 0.2x, Rows 10-9: 0.4x, Rows 8-7: 0.6x, Rows 6-5: 0.8x, Rows 4+: 1.0x
-        let progressiveSpeedMultiplier = 0.2;
-        if (playerRow <= 4) {
-          progressiveSpeedMultiplier = 1.0;
-        } else if (playerRow <= 6) {
-          progressiveSpeedMultiplier = 0.8;
-        } else if (playerRow <= 8) {
-          progressiveSpeedMultiplier = 0.6;
-        } else if (playerRow <= 10) {
-          progressiveSpeedMultiplier = 0.4;
-        } else {
-          progressiveSpeedMultiplier = 0.2;
-        }
+        // Row 12 = start (0.3x), Row 0 = goal (1.0x)
+        // Speed ramps in 0.1x increments from 0.3 to 1.0
+        // Each ~1.7 rows adds 0.1x speed
+        const progressToGoal = Math.max(0, Math.min(1, (12 - playerRow) / 12));
+        const progressiveSpeedMultiplier = 0.3 + (progressToGoal * 0.7);
 
         setLanes(prevLanes => prevLanes.map(lane => {
           if (lane.type === 'safe' || lane.type === 'home') return lane;
