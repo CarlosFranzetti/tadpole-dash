@@ -33,6 +33,7 @@ export const HOME_SPOTS = [
 ];
 
 export const OBJECT_WIDTHS: Record<string, number> = {
+  'motorcycle': 25,
   'car-small': 40,
   'car': 50,
   'car-wide': 80,

@@ -98,13 +98,37 @@ export const GameCanvas = ({ player, lanes, homeSpots, level }: GameCanvasProps)
 
         ctx.save();
 
+        const colorVariant = obj.colorVariant || 0;
+        
         switch (obj.type) {
+          case 'motorcycle':
+            // Small fast motorcycle - harder to see
+            const motoColors = ['#424242', '#616161', '#757575', '#5d4037'];
+            ctx.fillStyle = motoColors[colorVariant % motoColors.length];
+            // Body
+            ctx.fillRect(x + 4, y + 12, obj.width - 8, h - 24);
+            // Wheels
+            ctx.fillStyle = '#1a1a1a';
+            ctx.beginPath();
+            ctx.arc(x + 6, y + h / 2, 5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(x + obj.width - 6, y + h / 2, 5, 0, Math.PI * 2);
+            ctx.fill();
+            // Rider helmet
+            ctx.fillStyle = '#ffeb3b';
+            ctx.fillRect(x + 10, y + 8, 8, 8);
+            ctx.fillRect(x + 10, y + h - 16, 8, 8);
+            break;
+
           case 'car-small':
             // Small compact car (1 tile)
-            ctx.fillStyle = obj.x % 180 > 90 ? '#9c27b0' : '#00bcd4';
+            const smallCarColors = ['#9c27b0', '#00bcd4', '#4caf50', '#ff5722'];
+            const smallCarRoofColors = ['#7b1fa2', '#0097a7', '#388e3c', '#e64a19'];
+            ctx.fillStyle = smallCarColors[colorVariant % smallCarColors.length];
             ctx.fillRect(x + 2, y + 6, obj.width - 4, h - 12);
             // Roof
-            ctx.fillStyle = obj.x % 180 > 90 ? '#7b1fa2' : '#0097a7';
+            ctx.fillStyle = smallCarRoofColors[colorVariant % smallCarRoofColors.length];
             ctx.fillRect(x + 8, y + 10, obj.width - 16, h - 20);
             // Windows
             ctx.fillStyle = '#87ceeb';
@@ -120,7 +144,8 @@ export const GameCanvas = ({ player, lanes, homeSpots, level }: GameCanvasProps)
 
           case 'car':
             // Standard car
-            ctx.fillStyle = obj.x % 200 > 100 ? COLORS.car1 : COLORS.car2;
+            const carColors = [COLORS.car1, COLORS.car2, '#8bc34a', '#ff9800'];
+            ctx.fillStyle = carColors[colorVariant % carColors.length];
             ctx.fillRect(x, y + 4, obj.width, h - 8);
             // Windows
             ctx.fillStyle = '#87ceeb';
@@ -136,7 +161,8 @@ export const GameCanvas = ({ player, lanes, homeSpots, level }: GameCanvasProps)
 
           case 'car-wide':
             // Wide SUV/van style (2 tiles)
-            ctx.fillStyle = obj.x % 240 > 120 ? '#795548' : '#607d8b';
+            const wideCarColors = ['#795548', '#607d8b', '#3f51b5', '#009688'];
+            ctx.fillStyle = wideCarColors[colorVariant % wideCarColors.length];
             ctx.fillRect(x, y + 2, obj.width, h - 4);
             // Roof rack
             ctx.fillStyle = '#424242';

@@ -11,6 +11,7 @@ export interface GameObject extends Position {
   type: string;
   isDiving?: boolean;
   diveTimer?: number;
+  colorVariant?: number;
 }
 
 export interface Lane {
