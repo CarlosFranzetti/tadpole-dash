@@ -10,7 +10,7 @@ export const TitleScreen = ({ onStart, highScores }: TitleScreenProps) => {
   const displayScores = highScores.slice(0, 5);
 
   return (
-    <div className="flex flex-col items-center justify-start min-h-screen bg-gradient-to-b from-emerald-900 via-emerald-800 to-cyan-900 p-4 pt-8">
+    <div className="flex flex-col items-center justify-start min-h-screen bg-gradient-to-b from-emerald-900 via-emerald-800 to-cyan-900 p-4 pt-[12vh]">
       {/* Pixel Art Frog */}
       <motion.div 
         className="mb-4"
