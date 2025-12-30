@@ -11,8 +11,8 @@ interface GameCanvasProps {
   isInvincible?: boolean;
 }
 
-// Smaller frog size (8% reduction)
-const FROG_SCALE = 0.92;
+// Smaller frog size (10% reduction)
+const FROG_SCALE = 0.90;
 const FROG_SIZE = PLAYER_SIZE * FROG_SCALE;
 const FROG_OFFSET = (PLAYER_SIZE - FROG_SIZE) / 2;
 
@@ -358,30 +358,69 @@ export const GameCanvas = ({ player, lanes, homeSpots, level, powerUp, isInvinci
           case 'log-short':
           case 'log-medium':
           case 'log-long':
-            // Detailed pixel log
-            // Main bark
+            // Highly detailed pixel log
+            // Main bark base
+            ctx.fillStyle = '#7d5e4e';
+            ctx.fillRect(x + 2, y + 5, obj.width - 4, h - 10);
+            // Lighter bark center
             ctx.fillStyle = COLORS.log;
-            ctx.fillRect(x + 4, y + 6, obj.width - 8, h - 12);
-            // Darker bark edges
-            ctx.fillStyle = '#6d5a4e';
-            ctx.fillRect(x + 2, y + 8, 4, h - 16);
-            ctx.fillRect(x + obj.width - 6, y + 8, 4, h - 16);
-            // Log ends (tree rings effect)
+            ctx.fillRect(x + 4, y + 7, obj.width - 8, h - 14);
+            // Darker bark edges (shadow)
+            ctx.fillStyle = '#5d4a3e';
+            ctx.fillRect(x, y + 8, 3, h - 16);
+            ctx.fillRect(x + obj.width - 3, y + 8, 3, h - 16);
+            // Log ends (tree rings effect) - left end
+            ctx.fillStyle = '#a08878';
+            ctx.fillRect(x, y + 8, 6, h - 16);
             ctx.fillStyle = '#8d7a6e';
-            ctx.fillRect(x, y + 10, 4, h - 20);
-            ctx.fillRect(x + obj.width - 4, y + 10, 4, h - 20);
+            ctx.fillRect(x + 1, y + 10, 4, h - 20);
+            ctx.fillStyle = '#c4a888';
+            ctx.fillRect(x + 2, y + 12, 2, h - 24);
+            // Tree rings detail - left
+            ctx.fillStyle = '#6d5a4e';
+            ctx.fillRect(x + 2, y + 14, 1, h - 28);
+            // Log ends - right end
             ctx.fillStyle = '#a08878';
-            ctx.fillRect(x + 1, y + 12, 2, h - 24);
-            ctx.fillRect(x + obj.width - 3, y + 12, 2, h - 24);
-            // Bark texture (pixel knots)
-            ctx.fillStyle = '#7d6e5e';
-            for (let lx = x + 12; lx < x + obj.width - 12; lx += 18) {
-              ctx.fillRect(lx, y + 10, 3, 2);
-              ctx.fillRect(lx + 6, y + h - 12, 3, 2);
+            ctx.fillRect(x + obj.width - 6, y + 8, 6, h - 16);
+            ctx.fillStyle = '#8d7a6e';
+            ctx.fillRect(x + obj.width - 5, y + 10, 4, h - 20);
+            ctx.fillStyle = '#c4a888';
+            ctx.fillRect(x + obj.width - 4, y + 12, 2, h - 24);
+            // Tree rings detail - right
+            ctx.fillStyle = '#6d5a4e';
+            ctx.fillRect(x + obj.width - 3, y + 14, 1, h - 28);
+            // Bark texture (pixel knots and grain)
+            ctx.fillStyle = '#6d5a4e';
+            for (let lx = x + 14; lx < x + obj.width - 14; lx += 16) {
+              // Knot holes
+              ctx.fillRect(lx, y + 9, 4, 3);
+              ctx.fillRect(lx + 7, y + h - 13, 4, 3);
+              // Grain lines
+              ctx.fillRect(lx + 3, y + 14, 1, 6);
+              ctx.fillRect(lx + 10, y + 16, 1, 5);
             }
-            // Highlights
-            ctx.fillStyle = '#a08878';
-            ctx.fillRect(x + 8, y + 6, obj.width - 16, 2);
+            // Top bark texture detail
+            ctx.fillStyle = '#9d8878';
+            for (let lx = x + 10; lx < x + obj.width - 10; lx += 12) {
+              ctx.fillRect(lx, y + 6, 6, 1);
+            }
+            // Bottom bark texture
+            ctx.fillStyle = '#5d4a3e';
+            for (let lx = x + 8; lx < x + obj.width - 8; lx += 14) {
+              ctx.fillRect(lx, y + h - 7, 8, 1);
+            }
+            // Moss patches on log
+            ctx.fillStyle = '#4a6a3a';
+            ctx.fillRect(x + 20, y + 8, 4, 3);
+            if (obj.width > 100) {
+              ctx.fillRect(x + 60, y + h - 11, 5, 3);
+            }
+            if (obj.width > 140) {
+              ctx.fillRect(x + 110, y + 10, 4, 2);
+            }
+            // Highlight along top edge
+            ctx.fillStyle = '#b09888';
+            ctx.fillRect(x + 8, y + 5, obj.width - 16, 1);
             break;
 
           case 'turtle':

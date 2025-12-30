@@ -53,12 +53,18 @@ const isTurtleSafeToStandOn = (obj: GameObject, level: number) => {
 };
 
 const getWaterSupport = (player: Player, lane: Lane, level: number) => {
-  // Tile-based overlap: if frog touches ANY tile occupied by a platform, it's safe.
-  const frogRange = getTileRange(player.x, player.x + PLAYER_SIZE);
+  // VERY forgiving pixel-based overlap: if ANY part of frog overlaps ANY part of platform, it's safe.
+  // Use generous margins to prevent unfair deaths.
+  const frogLeft = player.x - 4;  // Extra margin on left
+  const frogRight = player.x + PLAYER_SIZE + 4;  // Extra margin on right
 
   for (const obj of lane.objects) {
-    const platformRange = getTileRange(obj.x, obj.x + obj.width);
-    if (!rangesOverlap(frogRange, platformRange)) continue;
+    const platformLeft = obj.x;
+    const platformRight = obj.x + obj.width;
+    
+    // Check pixel overlap with generous margins
+    const overlaps = frogRight > platformLeft && frogLeft < platformRight;
+    if (!overlaps) continue;
 
     if (obj.type === 'turtle' && !isTurtleSafeToStandOn(obj, level)) {
       // This platform is currently "water"; keep searching in case another platform overlaps too.
@@ -462,8 +468,8 @@ export const useGameLogic = () => {
       const playerRow = Math.floor(currentPlayer.y / TILE_SIZE);
       const progressToGoal = Math.max(0, Math.min(1, (START_ROW - playerRow) / START_ROW));
 
-      // Base progressive speed + 3% global speed boost for smoother feel
-      const progressiveSpeedMultiplier = (0.3 + progressToGoal * 0.7) * 1.03;
+      // Base progressive speed + 2.5% global speed boost (slowed by 0.5%)
+      const progressiveSpeedMultiplier = (0.3 + progressToGoal * 0.7) * 1.025;
 
       // --- Update lanes (no nested setState)
       const laneGap = (laneType: Lane['type']) => {
