@@ -65,25 +65,27 @@ const Index = () => {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-emerald-900 via-emerald-800 to-cyan-900 p-2">
-      <GameHUD lives={player.lives} score={player.score} level={level} />
-      <div className="relative">
-        <GameCanvas player={player} lanes={lanes} homeSpots={homeSpots} level={level} powerUp={powerUp} isInvincible={isInvincible} />
-        <SwipeIndicator direction={lastSwipe} />
-      </div>
+      <div className="flex flex-col items-center justify-center flex-1">
+        <GameHUD lives={player.lives} score={player.score} level={level} />
+        <div className="relative">
+          <GameCanvas player={player} lanes={lanes} homeSpots={homeSpots} level={level} powerUp={powerUp} isInvincible={isInvincible} />
+          <SwipeIndicator direction={lastSwipe} />
+        </div>
       
-      {/* Mobile swipe hint */}
-      <p className="text-emerald-300/50 text-sm mt-4">Swipe to move your frog!</p>
+        {/* Mobile swipe hint */}
+        <p className="text-emerald-300/50 text-sm mt-4">Swipe to move your frog!</p>
 
-      {isGameOver && (
-        <GameOverScreen
-          score={player.score}
-          level={level}
-          isHighScore={isHighScore(player.score)}
-          onSubmitScore={handleSubmitScore}
-          onPlayAgain={handlePlayAgain}
-          onMainMenu={handleMainMenu}
-        />
-      )}
+        {isGameOver && (
+          <GameOverScreen
+            score={player.score}
+            level={level}
+            isHighScore={isHighScore(player.score)}
+            onSubmitScore={handleSubmitScore}
+            onPlayAgain={handlePlayAgain}
+            onMainMenu={handleMainMenu}
+          />
+        )}
+      </div>
     </div>
   );
 };

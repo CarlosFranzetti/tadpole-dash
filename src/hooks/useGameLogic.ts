@@ -53,31 +53,31 @@ const isTurtleSafeToStandOn = (obj: GameObject, level: number) => {
 };
 
 const getWaterSupport = (player: Player, lane: Lane, level: number) => {
-  // VERY forgiving pixel-based overlap: if ANY part of frog overlaps ANY part of platform, it's safe.
-  // Use generous margins to prevent unfair deaths.
-  const frogLeft = player.x - 4;  // Extra margin on left
-  const frogRight = player.x + PLAYER_SIZE + 4;  // Extra margin on right
+  // Proper water collision: frog must be ON a platform to survive.
+  // Use center-point collision for accurate gap detection.
+  const frogCenterX = player.x + PLAYER_SIZE / 2;
 
   for (const obj of lane.objects) {
-    const platformLeft = obj.x;
-    const platformRight = obj.x + obj.width;
+    const platformLeft = obj.x + 2;  // Small inset for visual accuracy
+    const platformRight = obj.x + obj.width - 2;
     
-    // Check pixel overlap with generous margins
-    const overlaps = frogRight > platformLeft && frogLeft < platformRight;
-    if (!overlaps) continue;
+    // Check if frog center is over this platform
+    if (frogCenterX >= platformLeft && frogCenterX <= platformRight) {
+      // For turtles, check if they're submerged
+      if (obj.type === 'turtle' && !isTurtleSafeToStandOn(obj, level)) {
+        // Turtle is submerged - this counts as water, frog dies
+        return { supported: false, carrySpeed: 0, carryDir: 0 };
+      }
 
-    if (obj.type === 'turtle' && !isTurtleSafeToStandOn(obj, level)) {
-      // This platform is currently "water"; keep searching in case another platform overlaps too.
-      continue;
+      return {
+        supported: true,
+        carrySpeed: obj.speed,
+        carryDir: obj.direction,
+      };
     }
-
-    return {
-      supported: true,
-      carrySpeed: obj.speed,
-      carryDir: obj.direction,
-    };
   }
 
+  // Frog is in a gap between platforms - dies
   return { supported: false, carrySpeed: 0, carryDir: 0 };
 };
 
@@ -191,7 +191,7 @@ const createLaneObjects = (laneConfig: typeof LANES_CONFIG[number], level: numbe
         x,
         y: laneConfig.y * TILE_SIZE,
         width: objectWidth,
-        height: TILE_SIZE - 4,
+        height: TILE_SIZE,  // Full tile height for logs/turtles
         speed: (laneConfig.speed || 1) * speedMultiplier,
         direction: laneConfig.direction || 1,
         type: objectType,

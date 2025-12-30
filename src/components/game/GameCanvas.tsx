@@ -11,8 +11,8 @@ interface GameCanvasProps {
   isInvincible?: boolean;
 }
 
-// Smaller frog size (10% reduction)
-const FROG_SCALE = 0.90;
+// Smaller frog size (12% reduction)
+const FROG_SCALE = 0.88;
 const FROG_SIZE = PLAYER_SIZE * FROG_SCALE;
 const FROG_OFFSET = (PLAYER_SIZE - FROG_SIZE) / 2;
 
@@ -66,8 +66,8 @@ export const GameCanvas = ({ player, lanes, homeSpots, level, powerUp, isInvinci
         case 'road':
           ctx.fillStyle = COLORS.road;
           ctx.fillRect(0, laneY, GAME_WIDTH, TILE_SIZE);
-          // Alternating road markings by row
-          ctx.fillStyle = '#ffff00';
+          // Alternating road markings by row - lighter yellow
+          ctx.fillStyle = '#ffffaa';
           if (laneIndex % 2 === 0) {
             // Dashed center line
             for (let x = 10; x < GAME_WIDTH; x += 50) {
@@ -86,12 +86,26 @@ export const GameCanvas = ({ player, lanes, homeSpots, level, powerUp, isInvinci
         case 'safe':
           ctx.fillStyle = COLORS.grass;
           ctx.fillRect(0, laneY, GAME_WIDTH, TILE_SIZE);
-          // Grass texture
-          ctx.fillStyle = '#3d7a32';
-          for (let x = 5; x < GAME_WIDTH; x += 15) {
-            ctx.fillRect(x, laneY + 10, 2, 8);
-            ctx.fillRect(x + 5, laneY + 15, 2, 10);
+          // Nicer grass texture with varied blades
+          ctx.fillStyle = '#3d8a32';
+          for (let x = 3; x < GAME_WIDTH; x += 12) {
+            ctx.fillRect(x, laneY + 8, 2, 10);
+            ctx.fillRect(x + 4, laneY + 12, 2, 12);
           }
+          ctx.fillStyle = '#4a9a42';
+          for (let x = 8; x < GAME_WIDTH; x += 18) {
+            ctx.fillRect(x, laneY + 6, 1, 8);
+            ctx.fillRect(x + 6, laneY + 14, 2, 8);
+          }
+          // Small flowers/details
+          ctx.fillStyle = '#6ab052';
+          for (let x = 15; x < GAME_WIDTH; x += 35) {
+            ctx.fillRect(x, laneY + 18, 3, 3);
+          }
+          // Border line between grass and road (top of safe zone)
+          ctx.fillStyle = '#2d5a27';
+          ctx.fillRect(0, laneY, GAME_WIDTH, 2);
+          ctx.fillRect(0, laneY + TILE_SIZE - 2, GAME_WIDTH, 2);
           break;
         case 'home':
           ctx.fillStyle = COLORS.water;
