@@ -581,7 +581,7 @@ export const useGameLogic = () => {
     };
   }, [isGameOver, level, handleDeath]);
 
-  // Collision detection
+  // Collision detection (road + home + power-up only; water handled in game loop)
   useEffect(() => {
     if (isGameOver || player.isMoving) return;
 
@@ -590,8 +590,8 @@ export const useGameLogic = () => {
 
     if (!laneConfig) return;
 
-    // Check power-up collection (safe zone at row 6)
-    if (playerRow === 6 && powerUp && !powerUp.collected) {
+    // Check power-up collection (safe zone)
+    if (playerRow === MID_SAFE_ROW && powerUp && !powerUp.collected) {
       const playerCenterX = player.x + PLAYER_SIZE / 2;
       const distance = Math.abs(playerCenterX - (powerUp.x + 15));
       if (distance < 30) {
@@ -605,87 +605,22 @@ export const useGameLogic = () => {
       return;
     }
 
-    const lane = lanes.find(l => Math.floor(l.y / TILE_SIZE) === playerRow);
-    if (!lane) return;
+    // Road collision
+    if (laneConfig.type === 'road') {
+      const lane = lanes.find(l => Math.floor(l.y / TILE_SIZE) === playerRow);
+      if (!lane) return;
 
-    const playerLeft = player.x + 4; // road collision inset
-    const playerRight = player.x + PLAYER_SIZE - 4;
+      const playerLeft = player.x + 4;
+      const playerRight = player.x + PLAYER_SIZE - 4;
 
-    if (lane.type === 'road') {
       for (const obj of lane.objects) {
         if (playerRight > obj.x + 4 && playerLeft < obj.x + obj.width - 4) {
           handleDeath('crash');
           return;
         }
       }
-    } else if (lane.type === 'water') {
-      // WATER COLLISION LOGIC:
-      // - Being ON a log or turtle = SAFE (frog lives)
-      // - Being IN the water (not on any platform) = DEATH
-      // - Turtles that are fully submerged = treated as water (death)
-      
-      // Use very generous overlap detection - if ANY part of frog touches platform, it's safe
-      const frogLeft = player.x;
-      const frogRight = player.x + PLAYER_SIZE;
-
-      let foundSafePlatform = false;
-      let platformSpeed = 0;
-      let platformDirection = 0;
-
-      for (const obj of lane.objects) {
-        // Check if frog overlaps this platform at all
-        const platformLeft = obj.x;
-        const platformRight = obj.x + obj.width;
-        
-        // Overlap check: frog and platform rectangles intersect
-        const overlaps = frogRight > platformLeft && frogLeft < platformRight;
-        
-        if (!overlaps) continue;
-
-        // For turtles, check if they're safe to stand on
-        if (obj.type === 'turtle') {
-          const phase = obj.divePhase || 'surface';
-          
-          // Only FULLY submerged turtles are dangerous
-          // surface, diving, rising = all SAFE
-          if (phase === 'submerged') {
-            // On level 1, give grace period at start/end of submerge
-            const submergedDuration = DIVE_PHASES.submerged.duration;
-            const remaining = obj.diveTimer ?? 0;
-            const isInGracePeriod = level === 1 && (remaining >= submergedDuration * 0.75 || remaining <= submergedDuration * 0.25);
-            
-            if (!isInGracePeriod) {
-              // Turtle is fully underwater - frog falls in
-              continue; // Check other platforms, maybe there's a log nearby
-            }
-          }
-        }
-
-        // Platform is safe! Frog survives
-        foundSafePlatform = true;
-        platformSpeed = obj.speed;
-        platformDirection = obj.direction;
-        break;
-      }
-
-      if (!foundSafePlatform) {
-        // Frog is in the water - dies
-        handleDeath('splash');
-        return;
-      }
-
-      // Move frog with the platform
-      setPlayer(prev => {
-        const newX = prev.x + platformSpeed * platformDirection * 0.5;
-        // Carried off screen = death
-        if (newX < -PLAYER_SIZE || newX > GAME_WIDTH) {
-          handleDeath('splash');
-          return prev;
-        }
-        return { ...prev, x: newX, targetX: newX };
-      });
     }
-  }, [player.x, player.y, player.isMoving, lanes, level, isGameOver, handleDeath, checkHomeSpot, powerUp, collectPowerUp]);
+  }, [player.x, player.y, player.isMoving, lanes, isGameOver, handleDeath, checkHomeSpot, powerUp, collectPowerUp]);
 
   return {
     player,
