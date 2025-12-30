@@ -87,6 +87,19 @@ const getRandomVehicleType = (level: number, laneIndex: number, objectIndex: num
   }
 };
 
+// Speed variation per vehicle type
+const getVehicleSpeedMultiplier = (vehicleType: string): number => {
+  switch (vehicleType) {
+    case 'motorcycle': return 1.6 + Math.random() * 0.4; // 1.6-2.0x
+    case 'car-small': return 1.1 + Math.random() * 0.3;  // 1.1-1.4x
+    case 'car': return 0.9 + Math.random() * 0.3;        // 0.9-1.2x
+    case 'car-wide': return 0.7 + Math.random() * 0.2;   // 0.7-0.9x
+    case 'truck': return 0.6 + Math.random() * 0.2;      // 0.6-0.8x
+    case 'truck-long': return 0.5 + Math.random() * 0.15; // 0.5-0.65x
+    default: return 1;
+  }
+};
+
 const LOG_TYPES = ['log-short', 'log-medium', 'log-long'] as const;
 const pickLogType = () => LOG_TYPES[Math.floor(Math.random() * LOG_TYPES.length)];
 
@@ -99,6 +112,7 @@ const createLaneObjects = (laneConfig: typeof LANES_CONFIG[number], level: numbe
   const isWater = laneConfig.type === 'water';
 
   // Road lanes: enforce big openings on level 1.
+  // Vehicles spawn from the correct side based on direction
   if (isRoad) {
     const objects: GameObject[] = [];
 
@@ -111,7 +125,9 @@ const createLaneObjects = (laneConfig: typeof LANES_CONFIG[number], level: numbe
 
     const spacing = Math.max(baseSpacing - spacingReduction, minRoadSpacing);
     const numObjects = Math.ceil((GAME_WIDTH + spacing * 2) / spacing);
-    const speedMultiplier = 1 + (level - 1) * 0.12;
+    const levelSpeedMultiplier = 1 + (level - 1) * 0.15; // Increased per-level speed boost
+
+    const dir = laneConfig.direction || 1;
 
     for (let i = 0; i < numObjects; i++) {
       const objectType = getRandomVehicleType(level, laneConfig.y, i);
@@ -120,16 +136,24 @@ const createLaneObjects = (laneConfig: typeof LANES_CONFIG[number], level: numbe
       // IMPORTANT: don't add negative offsets on Level 1 roads (keeps guaranteed gaps)
       const randomOffset = level === 1 ? 0 : Math.sin(i * 3.7 + laneConfig.y) * 30;
 
-      // Motorcycles are faster
-      const speedBonus = objectType === 'motorcycle' ? 1.8 : 1;
+      // Vehicle-specific speed variation
+      const vehicleSpeedMult = getVehicleSpeedMultiplier(objectType);
+
+      // Spawn position based on direction: dir=1 spawns from left, dir=-1 spawns from right
+      let spawnX: number;
+      if (dir === 1) {
+        spawnX = -objectWidth - i * spacing + randomOffset;
+      } else {
+        spawnX = GAME_WIDTH + i * spacing + randomOffset;
+      }
 
       objects.push({
-        x: i * spacing - objectWidth + randomOffset,
+        x: spawnX,
         y: laneConfig.y * TILE_SIZE,
         width: objectWidth,
         height: TILE_SIZE - 4,
-        speed: (laneConfig.speed || 1) * speedMultiplier * speedBonus,
-        direction: laneConfig.direction || 1,
+        speed: (laneConfig.speed || 1) * levelSpeedMultiplier * vehicleSpeedMult,
+        direction: dir,
         type: objectType,
         isDiving: false,
         divePhase: undefined,
