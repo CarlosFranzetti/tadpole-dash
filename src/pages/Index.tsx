@@ -74,7 +74,7 @@ const Index = () => {
     return (
       <TitleScreen
         onStart={handleStartGame}
-        onHighScores={() => setGameState('highscores')}
+        highScores={highScores}
       />
     );
   }
