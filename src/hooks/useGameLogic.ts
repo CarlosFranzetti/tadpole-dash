@@ -15,10 +15,11 @@ const STARTING_X = GAME_WIDTH / 2 - PLAYER_SIZE / 2;
 const STARTING_Y = 12 * TILE_SIZE + 2;
 
 // Turtle dive phases with durations
+// Note: surfaced + submerged pauses are intentionally longer (+18%) for readability.
 const DIVE_PHASES = {
-  surface: { duration: 4000, next: 'diving' as const },
+  surface: { duration: 4720, next: 'diving' as const },
   diving: { duration: 800, next: 'submerged' as const },
-  submerged: { duration: 2000, next: 'rising' as const },
+  submerged: { duration: 2360, next: 'rising' as const },
   rising: { duration: 800, next: 'surface' as const },
 };
 
@@ -41,26 +42,43 @@ const createLaneObjects = (laneConfig: typeof LANES_CONFIG[number], level: numbe
 
   const objects: GameObject[] = [];
   const isRoad = laneConfig.type === 'road';
-  
-  const baseSpacing = isRoad ? (level === 1 ? 340 : 280) : 160;
-  const spacingReduction = Math.min((level - 1) * 25, 80);
-  const spacing = Math.max(baseSpacing - spacingReduction, isRoad ? 160 : 120);
-  
+  const isWater = laneConfig.type === 'water';
+
+  // Spacing rules:
+  // - Level 1 road: ensure at least ~2 tiles between vehicles (easier openings)
+  // - Water: dense platforms but never overlapping
+  const baseSpacing = isRoad ? (level === 1 ? 420 : 300) : 180;
+  const spacingReduction = isRoad ? Math.min((level - 1) * 30, 110) : Math.min((level - 1) * 15, 40);
+
+  const maxVehicleWidth = level <= 2 ? 80 : 120;
+  const minRoadGap = level === 1 ? TILE_SIZE * 2 : TILE_SIZE; // 2 tiles on L1
+  const minRoadSpacing = maxVehicleWidth + minRoadGap;
+
+  const minWaterSpacing = 140;
+
+  const spacing = isRoad
+    ? Math.max(baseSpacing - spacingReduction, minRoadSpacing)
+    : Math.max(baseSpacing - spacingReduction, minWaterSpacing);
+
   const numObjects = Math.ceil((GAME_WIDTH + spacing * 2) / spacing);
   const speedMultiplier = 1 + (level - 1) * 0.12;
 
   for (let i = 0; i < numObjects; i++) {
     const isTurtle = laneConfig.objectType === 'turtle';
-    
+
     let objectType = laneConfig.objectType;
     if (isRoad) {
       objectType = getRandomVehicleType(level, laneConfig.y, i);
     }
-    
+
     const objectWidth = OBJECT_WIDTHS[objectType] || 60;
-    const randomOffset = isRoad ? (Math.sin(i * 3.7 + laneConfig.y) * 30) : 0;
+
+    // IMPORTANT: don't add negative offsets on Level 1 roads (keeps guaranteed gaps)
+    const randomOffset = isRoad ? (level === 1 ? 0 : (Math.sin(i * 3.7 + laneConfig.y) * 30)) : 0;
+
+    // Motorcycles are faster
     const speedBonus = objectType === 'motorcycle' ? 1.8 : 1;
-    
+
     objects.push({
       x: i * spacing - objectWidth + randomOffset,
       y: laneConfig.y * TILE_SIZE,
@@ -71,7 +89,8 @@ const createLaneObjects = (laneConfig: typeof LANES_CONFIG[number], level: numbe
       type: objectType,
       isDiving: false,
       divePhase: isTurtle ? 'surface' : undefined,
-      diveTimer: isTurtle ? Math.random() * 2000 + 2000 : undefined,
+      // start in surface phase with a random offset so they don't all dive together
+      diveTimer: isTurtle ? (DIVE_PHASES.surface.duration * 0.4 + Math.random() * DIVE_PHASES.surface.duration * 0.6) : undefined,
       colorVariant: Math.floor(Math.random() * 4),
     });
   }
@@ -320,34 +339,80 @@ export const useGameLogic = () => {
         setLanes(prevLanes => prevLanes.map(lane => {
           if (lane.type === 'safe' || lane.type === 'home') return lane;
 
-          const updatedObjects = lane.objects.map(obj => {
-            let newX = obj.x + obj.speed * obj.direction * progressiveSpeedMultiplier * (deltaTime / 16);
-            
-            if (obj.direction === 1 && newX > GAME_WIDTH + 50) {
-              newX = -obj.width - 50;
-            } else if (obj.direction === -1 && newX < -obj.width - 50) {
-              newX = GAME_WIDTH + 50;
-            }
+          const isRoadLane = lane.type === 'road';
+
+          // Keep wrap spacing consistent with spawn spacing (prevents overlaps)
+          const baseSpacing = isRoadLane ? (level === 1 ? 420 : 300) : 180;
+          const spacingReduction = isRoadLane ? Math.min((level - 1) * 30, 110) : Math.min((level - 1) * 15, 40);
+          const maxVehicleWidth = level <= 2 ? 80 : 120;
+          const minRoadGap = level === 1 ? TILE_SIZE * 2 : TILE_SIZE;
+          const minRoadSpacing = maxVehicleWidth + minRoadGap;
+          const minWaterSpacing = 140;
+
+          const spacing = isRoadLane
+            ? Math.max(baseSpacing - spacingReduction, minRoadSpacing)
+            : Math.max(baseSpacing - spacingReduction, minWaterSpacing);
+
+          const wrapBuffer = 60;
+
+          const moved = lane.objects.map((obj, index) => {
+            const dx = obj.speed * obj.direction * progressiveSpeedMultiplier * (deltaTime / 16);
+            let newX = obj.x + dx;
+
+            const wrappedRight = obj.direction === 1 && newX > GAME_WIDTH + wrapBuffer;
+            const wrappedLeft = obj.direction === -1 && newX < -obj.width - wrapBuffer;
 
             // Handle diving turtles with phases
+            let nextObj: GameObject = { ...obj, x: newX };
             if (obj.type === 'turtle' && obj.diveTimer !== undefined && obj.divePhase) {
               let newDiveTimer = obj.diveTimer - deltaTime;
               let newDivePhase = obj.divePhase;
-              let newIsDiving = obj.isDiving;
 
               if (newDiveTimer <= 0) {
                 const phaseConfig = DIVE_PHASES[obj.divePhase];
                 newDivePhase = phaseConfig.next;
+                // Only surface phase gets extra jitter so they don't sync
                 newDiveTimer = DIVE_PHASES[newDivePhase].duration + (newDivePhase === 'surface' ? Math.random() * 2000 : 0);
-                newIsDiving = newDivePhase === 'submerged';
               }
 
-              return { ...obj, x: newX, diveTimer: newDiveTimer, divePhase: newDivePhase, isDiving: newIsDiving };
+              nextObj = {
+                ...nextObj,
+                diveTimer: newDiveTimer,
+                divePhase: newDivePhase,
+                isDiving: newDivePhase === 'submerged',
+              };
             }
 
-            return { ...obj, x: newX };
+            return {
+              index,
+              wrapped: wrappedRight || wrappedLeft,
+              wrappedDir: wrappedRight ? 1 : wrappedLeft ? -1 : 0,
+              obj: nextObj,
+            };
           });
 
+          // Fix overlaps on wrap: place wrapped objects behind the pack by `spacing`
+          if (moved.some(m => m.wrapped)) {
+            if (lane.direction === 1) {
+              const nonWrapped = moved.filter(m => !m.wrapped).map(m => m.obj.x);
+              let insertX = nonWrapped.length ? Math.min(...nonWrapped) : -wrapBuffer;
+              const wrapped = moved.filter(m => m.wrapped).sort((a, b) => a.index - b.index);
+              for (const w of wrapped) {
+                insertX -= spacing;
+                w.obj = { ...w.obj, x: insertX };
+              }
+            } else {
+              const nonWrapped = moved.filter(m => !m.wrapped).map(m => m.obj.x);
+              let insertX = nonWrapped.length ? Math.max(...nonWrapped) : GAME_WIDTH + wrapBuffer;
+              const wrapped = moved.filter(m => m.wrapped).sort((a, b) => a.index - b.index);
+              for (const w of wrapped) {
+                insertX += spacing;
+                w.obj = { ...w.obj, x: insertX };
+              }
+            }
+          }
+
+          const updatedObjects = moved.map(m => m.obj);
           return { ...lane, objects: updatedObjects };
         }));
 
@@ -380,7 +445,7 @@ export const useGameLogic = () => {
     return () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
     };
-  }, [isGameOver]);
+  }, [isGameOver, level]);
 
   // Collision detection
   useEffect(() => {
@@ -409,9 +474,8 @@ export const useGameLogic = () => {
     const lane = lanes.find(l => Math.floor(l.y / TILE_SIZE) === playerRow);
     if (!lane) return;
 
-    const playerLeft = player.x + 4; // Small inset for more forgiving collision
+    const playerLeft = player.x + 4; // road collision inset
     const playerRight = player.x + PLAYER_SIZE - 4;
-    const playerCenterX = player.x + PLAYER_SIZE / 2;
 
     if (lane.type === 'road') {
       for (const obj of lane.objects) {
@@ -421,25 +485,39 @@ export const useGameLogic = () => {
         }
       }
     } else if (lane.type === 'water') {
+      // Platform collision is generous: if any of the frog overlaps the platform, it's safe.
+      const platformPlayerLeft = player.x + 2;
+      const platformPlayerRight = player.x + PLAYER_SIZE - 2;
+
       let onPlatform = false;
       let platformSpeed = 0;
       let platformDirection = 0;
 
       for (const obj of lane.objects) {
-        // More forgiving platform detection - use wider bounds
-        const isOnObject = playerCenterX >= obj.x - 5 && playerCenterX <= obj.x + obj.width + 5;
-        
-        if (isOnObject) {
-          // Check if turtle is fully submerged (diving/rising phases are still safe)
-          if (obj.type === 'turtle' && obj.divePhase === 'submerged') {
-            handleDeath('splash');
-            return;
+        const overlaps = platformPlayerRight >= obj.x && platformPlayerLeft <= obj.x + obj.width;
+        if (!overlaps) continue;
+
+        // Logs are always safe when overlapping.
+        if (obj.type === 'turtle') {
+          const phase = obj.divePhase || 'surface';
+
+          // Level 1 grace: allow the first/last quarter of submerged time ("2nd frame" feel)
+          if (phase === 'submerged') {
+            const submergedDuration = DIVE_PHASES.submerged.duration;
+            const remaining = obj.diveTimer ?? 0;
+            const grace = level === 1 && (remaining >= submergedDuration * 0.75 || remaining <= submergedDuration * 0.25);
+            if (!grace) {
+              handleDeath('splash');
+              return;
+            }
           }
-          onPlatform = true;
-          platformSpeed = obj.speed;
-          platformDirection = obj.direction;
-          break;
+          // diving + rising are safe, and (with grace) part of submerged can be safe on level 1
         }
+
+        onPlatform = true;
+        platformSpeed = obj.speed;
+        platformDirection = obj.direction;
+        break;
       }
 
       if (!onPlatform) {
@@ -457,7 +535,7 @@ export const useGameLogic = () => {
         return { ...prev, x: newX, targetX: newX };
       });
     }
-  }, [player.x, player.y, player.isMoving, lanes, isGameOver, handleDeath, checkHomeSpot, powerUp, collectPowerUp]);
+  }, [player.x, player.y, player.isMoving, lanes, level, isGameOver, handleDeath, checkHomeSpot, powerUp, collectPowerUp]);
 
   return {
     player,
