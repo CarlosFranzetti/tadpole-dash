@@ -97,9 +97,9 @@ const Index = () => {
   const ASPECT_RATIO = 9 / 16;
 
   return (
-    <div className="flex items-center justify-center min-h-screen w-full bg-black">
+    <div className="flex items-start justify-center min-h-screen w-full bg-emerald-900">
       <div 
-        className="relative flex flex-col items-center justify-start bg-gradient-to-b from-emerald-900 via-emerald-800 to-cyan-900 p-2 pt-8 overflow-hidden mx-auto"
+        className="relative flex flex-col items-center justify-start bg-gradient-to-b from-emerald-900 via-emerald-800 to-cyan-900 p-2 pt-2 overflow-hidden mx-auto"
         style={{
           width: 'min(100vw, 100vh * 9 / 16)',
           height: 'min(100vh, 100vw * 16 / 9)',
