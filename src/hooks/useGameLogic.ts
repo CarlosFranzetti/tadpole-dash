@@ -131,30 +131,39 @@ const createLaneObjects = (laneConfig: typeof LANES_CONFIG[number], level: numbe
 
     const spacing = Math.max(baseSpacing - spacingReduction, minRoadSpacing);
     const numObjects = Math.ceil((GAME_WIDTH + spacing * 2) / spacing);
-    const levelSpeedMultiplier = 1 + (level - 1) * 0.15; // Increased per-level speed boost
+    const levelSpeedMultiplier = 1 + (level - 1) * 0.15;
 
     const dir = laneConfig.direction || 1;
 
+    // Pre-generate all vehicle types and widths to calculate proper positions
+    const vehicleData: { type: string; width: number; speedMult: number }[] = [];
     for (let i = 0; i < numObjects; i++) {
       const objectType = getRandomVehicleType(level, laneConfig.y, i);
       const objectWidth = OBJECT_WIDTHS[objectType] || 60;
-
-      // IMPORTANT: don't add negative offsets on Level 1 roads (keeps guaranteed gaps)
-      const randomOffset = level === 1 ? 0 : Math.sin(i * 3.7 + laneConfig.y) * 30;
-
-      // Vehicle-specific speed variation
       const vehicleSpeedMult = getVehicleSpeedMultiplier(objectType);
+      vehicleData.push({ type: objectType, width: objectWidth, speedMult: vehicleSpeedMult });
+    }
 
-      // ALWAYS spawn vehicles off-screen from the correct edge based on direction
-      // dir=1 moves right, so spawn from left edge (negative x)
-      // dir=-1 moves left, so spawn from right edge (past GAME_WIDTH)
+    // Calculate spawn positions ensuring ALL vehicles start OFF-SCREEN
+    // and don't overlap (except motorcycles can be closer)
+    let currentOffset = 0;
+    
+    for (let i = 0; i < numObjects; i++) {
+      const { type: objectType, width: objectWidth, speedMult: vehicleSpeedMult } = vehicleData[i];
+      
+      // Gap between this vehicle and the next - motorcycles can be closer
+      const isMotorcycle = objectType === 'motorcycle';
+      const nextIsMotorcycle = i + 1 < numObjects && vehicleData[i + 1].type === 'motorcycle';
+      const gapMultiplier = (isMotorcycle || nextIsMotorcycle) ? 0.6 : 1;
+      const gap = spacing * gapMultiplier;
+
       let spawnX: number;
       if (dir === 1) {
-        // Spawn off left edge, moving right
-        spawnX = -objectWidth - i * spacing + randomOffset;
+        // Moving right: spawn off LEFT edge (all x values negative)
+        spawnX = -objectWidth - currentOffset;
       } else {
-        // Spawn off right edge, moving left
-        spawnX = GAME_WIDTH + i * spacing + randomOffset;
+        // Moving left: spawn off RIGHT edge (all x values >= GAME_WIDTH)
+        spawnX = GAME_WIDTH + currentOffset;
       }
 
       objects.push({
@@ -170,6 +179,8 @@ const createLaneObjects = (laneConfig: typeof LANES_CONFIG[number], level: numbe
         diveTimer: undefined,
         colorVariant: Math.floor(Math.random() * 4),
       });
+
+      currentOffset += objectWidth + gap;
     }
 
     return objects;
@@ -610,7 +621,7 @@ export const useGameLogic = () => {
 
         // Re-insert wrapped objects at the correct edge (always off-screen)
         if (moved.some(m => m.wrapped)) {
-          const gap = laneGap(lane.type);
+          const baseGap = laneGap(lane.type);
           const nonWrapped = moved.filter(m => !m.wrapped);
           const wrapped = moved.filter(m => m.wrapped);
 
@@ -620,6 +631,9 @@ export const useGameLogic = () => {
               ? Math.min(...nonWrapped.map(m => m.obj.x)) 
               : -wrapBuffer;
             for (const w of wrapped) {
+              // Motorcycles can be closer to other vehicles
+              const isMotorcycle = w.obj.type === 'motorcycle';
+              const gap = isMotorcycle ? baseGap * 0.6 : baseGap;
               insertX -= w.obj.width + gap;
               w.obj = { ...w.obj, x: insertX };
             }
@@ -629,6 +643,9 @@ export const useGameLogic = () => {
               ? Math.max(...nonWrapped.map(m => m.obj.x + m.obj.width)) 
               : GAME_WIDTH + wrapBuffer;
             for (const w of wrapped) {
+              // Motorcycles can be closer to other vehicles
+              const isMotorcycle = w.obj.type === 'motorcycle';
+              const gap = isMotorcycle ? baseGap * 0.6 : baseGap;
               w.obj = { ...w.obj, x: insertX + gap };
               insertX += w.obj.width + gap;
             }
