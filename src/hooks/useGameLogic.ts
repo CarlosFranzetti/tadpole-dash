@@ -587,9 +587,12 @@ export const useGameLogic = () => {
       const nextLanes: Lane[] = lanesRef.current.map(lane => {
         if (lane.type === 'safe' || lane.type === 'home') return lane;
 
+        const minGap = lane.type === 'road' ? (level === 1 ? TILE_SIZE * 2 : TILE_SIZE) : TILE_SIZE;
+
+        // First pass: calculate new positions
         const moved = lane.objects.map(obj => {
           const dx = obj.speed * obj.direction * progressiveSpeedMultiplier * (deltaTime / 16);
-          const x = obj.x + dx;
+          let x = obj.x + dx;
 
           const wrappedRight = obj.direction === 1 && x > GAME_WIDTH + wrapBuffer;
           const wrappedLeft = obj.direction === -1 && x < -obj.width - wrapBuffer;
@@ -604,7 +607,6 @@ export const useGameLogic = () => {
             if (newDiveTimer <= 0) {
               const phaseConfig = DIVE_PHASES[obj.divePhase];
               newDivePhase = phaseConfig.next;
-              // Only surface phase gets extra jitter so they don't sync
               newDiveTimer = DIVE_PHASES[newDivePhase].duration + (newDivePhase === 'surface' ? Math.random() * 2000 : 0);
             }
 
@@ -618,6 +620,53 @@ export const useGameLogic = () => {
 
           return { obj: nextObj, wrapped: wrappedRight || wrappedLeft };
         });
+
+        // Second pass: prevent non-motorcycle vehicles from overlapping on roads
+        if (lane.type === 'road') {
+          const nonWrapped = moved.filter(m => !m.wrapped);
+          
+          if (lane.direction === 1) {
+            // Moving right: sort by x descending (rightmost first)
+            nonWrapped.sort((a, b) => b.obj.x - a.obj.x);
+            for (let i = 1; i < nonWrapped.length; i++) {
+              const ahead = nonWrapped[i - 1];
+              const behind = nonWrapped[i];
+              
+              // Skip if both are motorcycles
+              if (ahead.obj.type === 'motorcycle' && behind.obj.type === 'motorcycle') continue;
+              
+              // Check if behind vehicle is too close to ahead vehicle
+              const requiredGap = (ahead.obj.type === 'motorcycle' || behind.obj.type === 'motorcycle') 
+                ? minGap * 0.6 
+                : minGap;
+              const maxX = ahead.obj.x - ahead.obj.width - requiredGap;
+              
+              if (behind.obj.x + behind.obj.width > ahead.obj.x - requiredGap) {
+                behind.obj = { ...behind.obj, x: maxX - behind.obj.width };
+              }
+            }
+          } else {
+            // Moving left: sort by x ascending (leftmost first)
+            nonWrapped.sort((a, b) => a.obj.x - b.obj.x);
+            for (let i = 1; i < nonWrapped.length; i++) {
+              const ahead = nonWrapped[i - 1];
+              const behind = nonWrapped[i];
+              
+              // Skip if both are motorcycles
+              if (ahead.obj.type === 'motorcycle' && behind.obj.type === 'motorcycle') continue;
+              
+              // Check if behind vehicle is too close to ahead vehicle
+              const requiredGap = (ahead.obj.type === 'motorcycle' || behind.obj.type === 'motorcycle') 
+                ? minGap * 0.6 
+                : minGap;
+              const minX = ahead.obj.x + ahead.obj.width + requiredGap;
+              
+              if (behind.obj.x < minX) {
+                behind.obj = { ...behind.obj, x: minX };
+              }
+            }
+          }
+        }
 
         // Re-insert wrapped objects at the correct edge (always off-screen)
         if (moved.some(m => m.wrapped)) {
