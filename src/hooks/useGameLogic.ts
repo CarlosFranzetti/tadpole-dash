@@ -145,11 +145,15 @@ const createLaneObjects = (laneConfig: typeof LANES_CONFIG[number], level: numbe
       // Vehicle-specific speed variation
       const vehicleSpeedMult = getVehicleSpeedMultiplier(objectType);
 
-      // Spawn position based on direction: dir=1 spawns from left, dir=-1 spawns from right
+      // ALWAYS spawn vehicles off-screen from the correct edge based on direction
+      // dir=1 moves right, so spawn from left edge (negative x)
+      // dir=-1 moves left, so spawn from right edge (past GAME_WIDTH)
       let spawnX: number;
       if (dir === 1) {
+        // Spawn off left edge, moving right
         spawnX = -objectWidth - i * spacing + randomOffset;
       } else {
+        // Spawn off right edge, moving left
         spawnX = GAME_WIDTH + i * spacing + randomOffset;
       }
 
@@ -536,8 +540,8 @@ export const useGameLogic = () => {
       const playerRow = Math.floor(currentPlayer.y / TILE_SIZE);
       const progressToGoal = Math.max(0, Math.min(1, (START_ROW - playerRow) / START_ROW));
 
-      // Base progressive speed + 2.5% global speed boost (slowed by 0.5%)
-      const progressiveSpeedMultiplier = (0.3 + progressToGoal * 0.7) * 1.025;
+      // Base progressive speed (reduced by 10%: 0.27 + 0.63 progression, 0.9225 multiplier)
+      const progressiveSpeedMultiplier = (0.27 + progressToGoal * 0.63) * 1.025 * 0.9;
 
       // --- Update lanes (no nested setState)
       const laneGap = (laneType: Lane['type']) => {
@@ -583,24 +587,29 @@ export const useGameLogic = () => {
           return { obj: nextObj, wrapped: wrappedRight || wrappedLeft };
         });
 
-        // Re-insert wrapped objects behind the pack with a fixed gap (works even with variable log lengths)
+        // Re-insert wrapped objects at the correct edge (always off-screen)
         if (moved.some(m => m.wrapped)) {
           const gap = laneGap(lane.type);
-          const nonWrappedXs = moved.filter(m => !m.wrapped).map(m => m.obj.x);
+          const nonWrapped = moved.filter(m => !m.wrapped);
+          const wrapped = moved.filter(m => m.wrapped);
 
           if (lane.direction === 1) {
-            let insertX = nonWrappedXs.length ? Math.min(...nonWrappedXs) : -wrapBuffer;
-            const wrapped = moved.filter(m => m.wrapped);
+            // Objects move right, so respawn at left edge (off-screen)
+            let insertX = nonWrapped.length 
+              ? Math.min(...nonWrapped.map(m => m.obj.x)) 
+              : -wrapBuffer;
             for (const w of wrapped) {
               insertX -= w.obj.width + gap;
               w.obj = { ...w.obj, x: insertX };
             }
           } else {
-            let insertX = nonWrappedXs.length ? Math.max(...nonWrappedXs) : GAME_WIDTH + wrapBuffer;
-            const wrapped = moved.filter(m => m.wrapped);
+            // Objects move left, so respawn at right edge (off-screen)
+            let insertX = nonWrapped.length 
+              ? Math.max(...nonWrapped.map(m => m.obj.x + m.obj.width)) 
+              : GAME_WIDTH + wrapBuffer;
             for (const w of wrapped) {
-              insertX += gap + w.obj.width;
-              w.obj = { ...w.obj, x: insertX };
+              w.obj = { ...w.obj, x: insertX + gap };
+              insertX += w.obj.width + gap;
             }
           }
         }
