@@ -12,8 +12,8 @@ interface GameCanvasProps {
   deathEffect?: DeathEffect | null;
 }
 
-// Smaller frog size (17% reduction)
-const FROG_SCALE = 0.83;
+// Smaller frog size (~23% reduction)
+const FROG_SCALE = 0.77;
 const FROG_SIZE = PLAYER_SIZE * FROG_SCALE;
 const FROG_OFFSET = (PLAYER_SIZE - FROG_SIZE) / 2;
 
