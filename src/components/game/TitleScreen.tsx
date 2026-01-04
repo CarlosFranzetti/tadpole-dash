@@ -12,7 +12,7 @@ export const TitleScreen = ({ onStart, highScores }: TitleScreenProps) => {
   return (
     <div className="flex items-center justify-center min-h-screen bg-black">
       <motion.div 
-        className="relative flex flex-col items-center justify-start bg-gradient-to-b from-emerald-900 via-emerald-800 to-cyan-900 p-4 pt-[12vh] overflow-hidden"
+        className="relative flex flex-col items-center justify-start bg-gradient-to-b from-emerald-900 via-emerald-800 to-cyan-900 p-4 pt-[6vh] overflow-hidden"
         style={{
           width: 'min(100vw, 100vh * 9 / 16)',
           height: 'min(100vh, 100vw * 16 / 9)',
