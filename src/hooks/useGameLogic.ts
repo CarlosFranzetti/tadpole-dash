@@ -639,10 +639,11 @@ export const useGameLogic = () => {
               const requiredGap = (ahead.obj.type === 'motorcycle' || behind.obj.type === 'motorcycle') 
                 ? minGap * 0.6 
                 : minGap;
-              const maxX = ahead.obj.x - ahead.obj.width - requiredGap;
-              
-              if (behind.obj.x + behind.obj.width > ahead.obj.x - requiredGap) {
-                behind.obj = { ...behind.obj, x: maxX - behind.obj.width };
+
+              // Ensure behind.right <= ahead.left - gap
+              const desiredX = ahead.obj.x - requiredGap - behind.obj.width;
+              if (behind.obj.x > desiredX) {
+                behind.obj = { ...behind.obj, x: desiredX };
               }
             }
           } else {
@@ -659,10 +660,11 @@ export const useGameLogic = () => {
               const requiredGap = (ahead.obj.type === 'motorcycle' || behind.obj.type === 'motorcycle') 
                 ? minGap * 0.6 
                 : minGap;
-              const minX = ahead.obj.x + ahead.obj.width + requiredGap;
-              
-              if (behind.obj.x < minX) {
-                behind.obj = { ...behind.obj, x: minX };
+
+              // Ensure behind.left >= ahead.right + gap
+              const desiredX = ahead.obj.x + ahead.obj.width + requiredGap;
+              if (behind.obj.x < desiredX) {
+                behind.obj = { ...behind.obj, x: desiredX };
               }
             }
           }
@@ -679,6 +681,7 @@ export const useGameLogic = () => {
             let insertX = nonWrapped.length 
               ? Math.min(...nonWrapped.map(m => m.obj.x)) 
               : -wrapBuffer;
+            insertX = Math.min(insertX, -wrapBuffer);
             for (const w of wrapped) {
               // Motorcycles can be closer to other vehicles
               const isMotorcycle = w.obj.type === 'motorcycle';
@@ -691,6 +694,7 @@ export const useGameLogic = () => {
             let insertX = nonWrapped.length 
               ? Math.max(...nonWrapped.map(m => m.obj.x + m.obj.width)) 
               : GAME_WIDTH + wrapBuffer;
+            insertX = Math.max(insertX, GAME_WIDTH + wrapBuffer);
             for (const w of wrapped) {
               // Motorcycles can be closer to other vehicles
               const isMotorcycle = w.obj.type === 'motorcycle';
