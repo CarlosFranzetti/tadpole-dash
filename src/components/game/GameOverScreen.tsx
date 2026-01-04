@@ -5,7 +5,9 @@ interface GameOverScreenProps {
   score: number;
   level: number;
   isHighScore: boolean;
+  continuesRemaining: number;
   onSubmitScore: (initials: string) => void;
+  onContinue: () => void;
   onPlayAgain: () => void;
   onMainMenu: () => void;
 }
@@ -14,7 +16,9 @@ export const GameOverScreen = ({
   score,
   level,
   isHighScore,
+  continuesRemaining,
   onSubmitScore,
+  onContinue,
   onPlayAgain,
   onMainMenu,
 }: GameOverScreenProps) => {
@@ -32,6 +36,12 @@ export const GameOverScreen = ({
       onSubmitScore(initials.toUpperCase().padEnd(3, ' '));
       setSubmitted(true);
     }
+  };
+
+  const handleContinue = () => {
+    setInitials('');
+    setSubmitted(false);
+    onContinue();
   };
 
   const handlePlayAgain = () => {
@@ -112,6 +122,14 @@ export const GameOverScreen = ({
         )}
 
         <div className="flex flex-col gap-3">
+          {continuesRemaining > 0 && (
+            <button
+              onClick={handleContinue}
+              className="w-full py-3 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white font-bold text-lg rounded-lg shadow-lg transition-all border-b-4 border-orange-700 active:border-b-0 active:translate-y-1"
+            >
+              CONTINUE ({continuesRemaining} left)
+            </button>
+          )}
           <button
             onClick={handlePlayAgain}
             className="w-full py-3 bg-gradient-to-r from-lime-500 to-green-600 hover:from-lime-400 hover:to-green-500 text-white font-bold text-lg rounded-lg shadow-lg transition-all border-b-4 border-green-700 active:border-b-0 active:translate-y-1"
