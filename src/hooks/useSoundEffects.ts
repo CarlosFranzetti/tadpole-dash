@@ -69,7 +69,7 @@ export const useSoundEffects = () => {
         oscillator.type = 'square';
         oscillator.frequency.setValueAtTime(note.freq, ctx.currentTime);
         
-        gainNode.gain.setValueAtTime(0.072, ctx.currentTime); // 10% lower (was 0.08)
+        gainNode.gain.setValueAtTime(0.05, ctx.currentTime); // lowered music volume
         gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + note.dur * 0.9);
         
         oscillator.connect(gainNode);
