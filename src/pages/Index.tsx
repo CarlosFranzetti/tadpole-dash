@@ -16,7 +16,7 @@ const Index = () => {
   const [lastSwipe, setLastSwipe] = useState<SwipeDirection>(null);
   const [shakeFrame, setShakeFrame] = useState(0);
   const { highScores, addHighScore, isHighScore } = useHighScores();
-  const { player, lanes, homeSpots, level, isGameOver, powerUp, isInvincible, deathEffect, startGame, movePlayer } = useGameLogic();
+  const { player, lanes, homeSpots, level, isGameOver, powerUp, isInvincible, deathEffect, startGame, continueGame, continuesRemaining, movePlayer } = useGameLogic();
   const { startMusic, stopMusic, playSound } = useSoundEffects();
 
   const handleStartGame = useCallback(() => {
@@ -64,6 +64,11 @@ const Index = () => {
   const handlePlayAgain = useCallback(() => {
     handleStartGame();
   }, [handleStartGame]);
+
+  const handleContinue = useCallback(() => {
+    continueGame();
+    startMusic();
+  }, [continueGame, startMusic]);
 
   const handleMainMenu = useCallback(() => {
     setGameState('title');
@@ -127,7 +132,9 @@ const Index = () => {
               score={player.score}
               level={level}
               isHighScore={isHighScore(player.score)}
+              continuesRemaining={continuesRemaining}
               onSubmitScore={handleSubmitScore}
+              onContinue={handleContinue}
               onPlayAgain={handlePlayAgain}
               onMainMenu={handleMainMenu}
             />

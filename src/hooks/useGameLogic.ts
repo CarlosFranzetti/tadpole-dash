@@ -234,6 +234,8 @@ const createPowerUp = (): PowerUp | null => {
 export const useGameLogic = () => {
   const { playSound } = useSoundEffects();
   const [level, setLevel] = useState(1);
+  const [continuesUsed, setContinuesUsed] = useState(0);
+  const MAX_CONTINUES = 3;
   const [player, setPlayer] = useState<Player>({
     x: STARTING_X,
     y: STARTING_Y,
@@ -300,6 +302,7 @@ export const useGameLogic = () => {
   }, []);
   const startGame = useCallback(() => {
     setLevel(1);
+    setContinuesUsed(0);
     setPlayer({
       x: STARTING_X,
       y: STARTING_Y,
@@ -318,6 +321,24 @@ export const useGameLogic = () => {
     }
     initializeLanes(1);
   }, [initializeLanes]);
+
+  const continueGame = useCallback(() => {
+    if (continuesUsed >= MAX_CONTINUES) return;
+    
+    setContinuesUsed(prev => prev + 1);
+    setPlayer(prev => ({
+      ...prev,
+      x: STARTING_X,
+      y: STARTING_Y,
+      lives: 3,
+      targetX: STARTING_X,
+      targetY: STARTING_Y,
+      isMoving: false,
+    }));
+    setHighestRow(START_ROW);
+    setIsGameOver(false);
+    setIsInvincible(false);
+  }, [continuesUsed]);
 
   const createDeathParticles = useCallback((x: number, y: number, type: 'splash' | 'crash') => {
     const particles = [];
@@ -739,6 +760,8 @@ export const useGameLogic = () => {
     isInvincible,
     deathEffect,
     startGame,
+    continueGame,
+    continuesRemaining: MAX_CONTINUES - continuesUsed,
     movePlayer,
   };
 };

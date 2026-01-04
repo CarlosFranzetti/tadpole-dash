@@ -2,7 +2,15 @@ import { useState, useCallback, useEffect } from 'react';
 import { HighScore } from '@/lib/gameTypes';
 
 const STORAGE_KEY = 'tadpole-high-scores';
-const MAX_SCORES = 10;
+const MAX_SCORES = 5;
+
+const DEFAULT_SCORES: HighScore[] = [
+  { initials: 'AAA', score: 500, date: '1/1/26' },
+  { initials: 'BBB', score: 400, date: '1/1/26' },
+  { initials: 'CCC', score: 300, date: '1/1/26' },
+  { initials: 'DDD', score: 200, date: '1/1/26' },
+  { initials: 'EEE', score: 100, date: '1/1/26' },
+];
 
 export const useHighScores = () => {
   const [highScores, setHighScores] = useState<HighScore[]>([]);
@@ -11,10 +19,14 @@ export const useHighScores = () => {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       try {
-        setHighScores(JSON.parse(stored));
+        const parsed = JSON.parse(stored);
+        setHighScores(parsed.length > 0 ? parsed : DEFAULT_SCORES);
       } catch {
-        setHighScores([]);
+        setHighScores(DEFAULT_SCORES);
       }
+    } else {
+      setHighScores(DEFAULT_SCORES);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_SCORES));
     }
   }, []);
 
