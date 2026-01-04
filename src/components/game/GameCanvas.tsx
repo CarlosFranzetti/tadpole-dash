@@ -17,6 +17,9 @@ const FROG_SCALE = 0.83;
 const FROG_SIZE = PLAYER_SIZE * FROG_SCALE;
 const FROG_OFFSET = (PLAYER_SIZE - FROG_SIZE) / 2;
 
+// Vehicle scale (15% smaller except motorcycles)
+const VEHICLE_SCALE = 0.85;
+
 // Lily pad colors for each slot
 const LILYPAD_COLORS = [
   { base: '#2d8a2d', highlight: '#3da33d', texture: '#2d7a2d' },
@@ -205,13 +208,30 @@ export const GameCanvas = ({ player, lanes, homeSpots, level, powerUp, isInvinci
     // Draw lane objects
     lanes.forEach(lane => {
       lane.objects.forEach(obj => {
-        const x = Math.round(obj.x);
-        const y = Math.round(obj.y) + 2;
-        const h = obj.height;
+        const colorVariant = obj.colorVariant || 0;
+        
+        // Check if this is a vehicle that should be scaled (not motorcycle, not water objects)
+        const isScaledVehicle = ['car-small', 'car', 'car-wide', 'truck', 'truck-long'].includes(obj.type);
+        
+        let x = Math.round(obj.x);
+        let y = Math.round(obj.y) + 2;
+        let h = obj.height;
+        let w = obj.width;
 
         ctx.save();
-
-        const colorVariant = obj.colorVariant || 0;
+        
+        if (isScaledVehicle) {
+          // Scale down by 15% and center in the original space
+          const scaledW = w * VEHICLE_SCALE;
+          const scaledH = h * VEHICLE_SCALE;
+          const offsetX = (w - scaledW) / 2;
+          const offsetY = (h - scaledH) / 2;
+          
+          ctx.translate(x + offsetX, y + offsetY);
+          ctx.scale(VEHICLE_SCALE, VEHICLE_SCALE);
+          x = 0;
+          y = 0;
+        }
         
         switch (obj.type) {
           case 'motorcycle':
@@ -243,18 +263,18 @@ export const GameCanvas = ({ player, lanes, homeSpots, level, powerUp, isInvinci
             const smallCarColors = ['#9c27b0', '#00bcd4', '#4caf50', '#ff5722'];
             ctx.fillStyle = smallCarColors[colorVariant % smallCarColors.length];
             // Body
-            ctx.fillRect(x + 2, y + 8, obj.width - 4, h - 16);
+            ctx.fillRect(x + 2, y + 8, w - 4, h - 16);
             // Roof (darker)
             ctx.fillStyle = ['#7b1fa2', '#0097a7', '#388e3c', '#e64a19'][colorVariant % 4];
-            ctx.fillRect(x + 8, y + 12, obj.width - 16, h - 24);
+            ctx.fillRect(x + 8, y + 12, w - 16, h - 24);
             // Windows
             ctx.fillStyle = '#87ceeb';
             ctx.fillRect(x + 10, y + 14, 6, h - 28);
             ctx.fillRect(x + 20, y + 14, 6, h - 28);
             // Headlights
             ctx.fillStyle = '#ffff99';
-            ctx.fillRect(x + obj.width - 4, y + 12, 2, 4);
-            ctx.fillRect(x + obj.width - 4, y + h - 16, 2, 4);
+            ctx.fillRect(x + w - 4, y + 12, 2, 4);
+            ctx.fillRect(x + w - 4, y + h - 16, 2, 4);
             // Taillights
             ctx.fillStyle = '#ff0000';
             ctx.fillRect(x + 2, y + 12, 2, 4);
@@ -263,8 +283,8 @@ export const GameCanvas = ({ player, lanes, homeSpots, level, powerUp, isInvinci
             ctx.fillStyle = '#1a1a1a';
             ctx.fillRect(x + 6, y + 4, 6, 4);
             ctx.fillRect(x + 6, y + h - 8, 6, 4);
-            ctx.fillRect(x + obj.width - 12, y + 4, 6, 4);
-            ctx.fillRect(x + obj.width - 12, y + h - 8, 6, 4);
+            ctx.fillRect(x + w - 12, y + 4, 6, 4);
+            ctx.fillRect(x + w - 12, y + h - 8, 6, 4);
             break;
 
           case 'car':
@@ -272,21 +292,21 @@ export const GameCanvas = ({ player, lanes, homeSpots, level, powerUp, isInvinci
             const carColors = [COLORS.car1, COLORS.car2, '#8bc34a', '#ff9800'];
             ctx.fillStyle = carColors[colorVariant % carColors.length];
             // Body
-            ctx.fillRect(x + 2, y + 6, obj.width - 4, h - 12);
+            ctx.fillRect(x + 2, y + 6, w - 4, h - 12);
             // Roof
             ctx.fillStyle = ['#c62828', '#1565c0', '#689f38', '#ef6c00'][colorVariant % 4];
-            ctx.fillRect(x + 12, y + 10, obj.width - 24, h - 20);
+            ctx.fillRect(x + 12, y + 10, w - 24, h - 20);
             // Windows
             ctx.fillStyle = '#87ceeb';
             ctx.fillRect(x + 14, y + 12, 10, h - 24);
             ctx.fillRect(x + 28, y + 12, 8, h - 24);
             // Front bumper detail
             ctx.fillStyle = '#424242';
-            ctx.fillRect(x + obj.width - 6, y + 8, 4, h - 16);
+            ctx.fillRect(x + w - 6, y + 8, 4, h - 16);
             // Headlights
             ctx.fillStyle = '#ffff99';
-            ctx.fillRect(x + obj.width - 4, y + 10, 2, 4);
-            ctx.fillRect(x + obj.width - 4, y + h - 14, 2, 4);
+            ctx.fillRect(x + w - 4, y + 10, 2, 4);
+            ctx.fillRect(x + w - 4, y + h - 14, 2, 4);
             // Taillights
             ctx.fillStyle = '#ff0000';
             ctx.fillRect(x + 2, y + 10, 2, 4);
@@ -295,8 +315,8 @@ export const GameCanvas = ({ player, lanes, homeSpots, level, powerUp, isInvinci
             ctx.fillStyle = '#1a1a1a';
             ctx.fillRect(x + 6, y + 2, 8, 5);
             ctx.fillRect(x + 6, y + h - 7, 8, 5);
-            ctx.fillRect(x + obj.width - 14, y + 2, 8, 5);
-            ctx.fillRect(x + obj.width - 14, y + h - 7, 8, 5);
+            ctx.fillRect(x + w - 14, y + 2, 8, 5);
+            ctx.fillRect(x + w - 14, y + h - 7, 8, 5);
             // Hubcaps
             ctx.fillStyle = '#888888';
             ctx.fillRect(x + 8, y + 3, 4, 3);
@@ -308,10 +328,10 @@ export const GameCanvas = ({ player, lanes, homeSpots, level, powerUp, isInvinci
             const wideCarColors = ['#795548', '#607d8b', '#3f51b5', '#009688'];
             ctx.fillStyle = wideCarColors[colorVariant % wideCarColors.length];
             // Body
-            ctx.fillRect(x + 2, y + 4, obj.width - 4, h - 8);
+            ctx.fillRect(x + 2, y + 4, w - 4, h - 8);
             // Roof rack
             ctx.fillStyle = '#424242';
-            ctx.fillRect(x + 12, y + 2, obj.width - 24, 3);
+            ctx.fillRect(x + 12, y + 2, w - 24, 3);
             // Windows
             ctx.fillStyle = '#87ceeb';
             ctx.fillRect(x + 10, y + 8, 14, h - 16);
@@ -323,8 +343,8 @@ export const GameCanvas = ({ player, lanes, homeSpots, level, powerUp, isInvinci
             ctx.fillRect(x + 42, y + 8, 4, h - 16);
             // Headlights
             ctx.fillStyle = '#ffff99';
-            ctx.fillRect(x + obj.width - 4, y + 8, 2, 6);
-            ctx.fillRect(x + obj.width - 4, y + h - 14, 2, 6);
+            ctx.fillRect(x + w - 4, y + 8, 2, 6);
+            ctx.fillRect(x + w - 4, y + h - 14, 2, 6);
             // Taillights
             ctx.fillStyle = '#ff0000';
             ctx.fillRect(x + 2, y + 8, 2, 6);
@@ -333,8 +353,8 @@ export const GameCanvas = ({ player, lanes, homeSpots, level, powerUp, isInvinci
             ctx.fillStyle = '#1a1a1a';
             ctx.fillRect(x + 8, y, 10, 5);
             ctx.fillRect(x + 8, y + h - 5, 10, 5);
-            ctx.fillRect(x + obj.width - 18, y, 10, 5);
-            ctx.fillRect(x + obj.width - 18, y + h - 5, 10, 5);
+            ctx.fillRect(x + w - 18, y, 10, 5);
+            ctx.fillRect(x + w - 18, y + h - 5, 10, 5);
             break;
 
           case 'truck':
@@ -347,7 +367,7 @@ export const GameCanvas = ({ player, lanes, homeSpots, level, powerUp, isInvinci
             ctx.fillRect(x + 6, y + 8, 10, h - 18);
             // Cargo
             ctx.fillStyle = '#d4a853';
-            ctx.fillRect(x + 24, y + 2, obj.width - 26, h - 4);
+            ctx.fillRect(x + 24, y + 2, w - 26, h - 4);
             // Cargo detail lines
             ctx.fillStyle = '#c49843';
             ctx.fillRect(x + 34, y + 4, 2, h - 8);
@@ -355,8 +375,8 @@ export const GameCanvas = ({ player, lanes, homeSpots, level, powerUp, isInvinci
             ctx.fillRect(x + 66, y + 4, 2, h - 8);
             // Headlight
             ctx.fillStyle = '#ffff99';
-            ctx.fillRect(x + obj.width - 4, y + 10, 2, 4);
-            ctx.fillRect(x + obj.width - 4, y + h - 14, 2, 4);
+            ctx.fillRect(x + w - 4, y + 10, 2, 4);
+            ctx.fillRect(x + w - 4, y + h - 14, 2, 4);
             // Taillight
             ctx.fillStyle = '#ff0000';
             ctx.fillRect(x + 2, y + 10, 2, 4);
@@ -365,8 +385,8 @@ export const GameCanvas = ({ player, lanes, homeSpots, level, powerUp, isInvinci
             ctx.fillStyle = '#1a1a1a';
             ctx.fillRect(x + 6, y, 10, 5);
             ctx.fillRect(x + 6, y + h - 5, 10, 5);
-            ctx.fillRect(x + obj.width - 18, y, 10, 5);
-            ctx.fillRect(x + obj.width - 18, y + h - 5, 10, 5);
+            ctx.fillRect(x + w - 18, y, 10, 5);
+            ctx.fillRect(x + w - 18, y + h - 5, 10, 5);
             break;
 
           case 'truck-long':
@@ -382,7 +402,7 @@ export const GameCanvas = ({ player, lanes, homeSpots, level, powerUp, isInvinci
             ctx.fillRect(x + 6, y + 8, 6, h - 18);
             // Trailer
             ctx.fillStyle = '#37474f';
-            ctx.fillRect(x + 28, y, obj.width - 30, h);
+            ctx.fillRect(x + 28, y, w - 30, h);
             // Trailer stripes
             ctx.fillStyle = '#546e7a';
             for (let stripe = 0; stripe < 4; stripe++) {
@@ -396,16 +416,16 @@ export const GameCanvas = ({ player, lanes, homeSpots, level, powerUp, isInvinci
             }
             // Headlight
             ctx.fillStyle = '#ffff99';
-            ctx.fillRect(x + obj.width - 4, y + 8, 2, 4);
-            ctx.fillRect(x + obj.width - 4, y + h - 12, 2, 4);
+            ctx.fillRect(x + w - 4, y + 8, 2, 4);
+            ctx.fillRect(x + w - 4, y + h - 12, 2, 4);
             // Wheels (more for long truck)
             ctx.fillStyle = '#1a1a1a';
             ctx.fillRect(x + 8, y, 10, 5);
             ctx.fillRect(x + 8, y + h - 5, 10, 5);
             ctx.fillRect(x + 48, y, 10, 5);
             ctx.fillRect(x + 48, y + h - 5, 10, 5);
-            ctx.fillRect(x + obj.width - 22, y, 10, 5);
-            ctx.fillRect(x + obj.width - 22, y + h - 5, 10, 5);
+            ctx.fillRect(x + w - 22, y, 10, 5);
+            ctx.fillRect(x + w - 22, y + h - 5, 10, 5);
             break;
 
           case 'log-short':
