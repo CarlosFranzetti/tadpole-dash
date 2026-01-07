@@ -592,7 +592,7 @@ export const useGameLogic = () => {
         // First pass: calculate new positions
         const moved = lane.objects.map(obj => {
           const dx = obj.speed * obj.direction * progressiveSpeedMultiplier * (deltaTime / 16);
-          let x = obj.x + dx;
+          const x = obj.x + dx;
 
           const wrappedRight = obj.direction === 1 && x > GAME_WIDTH + wrapBuffer;
           const wrappedLeft = obj.direction === -1 && x < -obj.width - wrapBuffer;

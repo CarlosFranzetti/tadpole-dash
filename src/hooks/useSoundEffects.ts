@@ -1,5 +1,11 @@
 import { useCallback, useRef, useState, useEffect } from 'react';
 
+declare global {
+  interface Window {
+    webkitAudioContext?: typeof AudioContext;
+  }
+}
+
 type SoundType = 'hop' | 'splash' | 'crash' | 'victory' | 'gameover' | 'levelup' | 'dive' | 'surface';
 
 const createOscillator = (
@@ -50,7 +56,9 @@ export const useSoundEffects = () => {
 
   const getAudioContext = useCallback(() => {
     if (!audioContextRef.current) {
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const Ctor = (window.AudioContext ?? window.webkitAudioContext) as typeof AudioContext | undefined;
+      if (!Ctor) throw new Error('AudioContext is not supported in this environment');
+      audioContextRef.current = new Ctor();
     }
     return audioContextRef.current;
   }, []);

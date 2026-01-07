@@ -215,8 +215,8 @@ export const GameCanvas = ({ player, lanes, homeSpots, level, powerUp, isInvinci
         
         let x = Math.round(obj.x);
         let y = Math.round(obj.y) + 2;
-        let h = obj.height;
-        let w = obj.width;
+        const h = obj.height;
+        const w = obj.width;
 
         ctx.save();
         
@@ -234,7 +234,7 @@ export const GameCanvas = ({ player, lanes, homeSpots, level, powerUp, isInvinci
         }
         
         switch (obj.type) {
-          case 'motorcycle':
+          case 'motorcycle': {
             // Detailed pixel motorcycle
             const motoColors = ['#424242', '#616161', '#757575', '#5d4037'];
             ctx.fillStyle = motoColors[colorVariant % motoColors.length];
@@ -257,8 +257,9 @@ export const GameCanvas = ({ player, lanes, homeSpots, level, powerUp, isInvinci
             ctx.fillStyle = ['#ffeb3b', '#e91e63', '#00bcd4', '#ff5722'][colorVariant % 4];
             ctx.fillRect(x + 10, y + 4, 6, 6);
             break;
+          }
 
-          case 'car-small':
+          case 'car-small': {
             // Detailed pixel compact car
             const smallCarColors = ['#9c27b0', '#00bcd4', '#4caf50', '#ff5722'];
             ctx.fillStyle = smallCarColors[colorVariant % smallCarColors.length];
@@ -286,8 +287,9 @@ export const GameCanvas = ({ player, lanes, homeSpots, level, powerUp, isInvinci
             ctx.fillRect(x + w - 12, y + 4, 6, 4);
             ctx.fillRect(x + w - 12, y + h - 8, 6, 4);
             break;
+          }
 
-          case 'car':
+          case 'car': {
             // Standard detailed car
             const carColors = [COLORS.car1, COLORS.car2, '#8bc34a', '#ff9800'];
             ctx.fillStyle = carColors[colorVariant % carColors.length];
@@ -322,8 +324,9 @@ export const GameCanvas = ({ player, lanes, homeSpots, level, powerUp, isInvinci
             ctx.fillRect(x + 8, y + 3, 4, 3);
             ctx.fillRect(x + 8, y + h - 6, 4, 3);
             break;
+          }
 
-          case 'car-wide':
+          case 'car-wide': {
             // Wide SUV/van with detail
             const wideCarColors = ['#795548', '#607d8b', '#3f51b5', '#009688'];
             ctx.fillStyle = wideCarColors[colorVariant % wideCarColors.length];
@@ -356,8 +359,9 @@ export const GameCanvas = ({ player, lanes, homeSpots, level, powerUp, isInvinci
             ctx.fillRect(x + w - 18, y, 10, 5);
             ctx.fillRect(x + w - 18, y + h - 5, 10, 5);
             break;
+          }
 
-          case 'truck':
+          case 'truck': {
             // Detailed truck
             // Cab
             ctx.fillStyle = COLORS.truck;
@@ -388,8 +392,9 @@ export const GameCanvas = ({ player, lanes, homeSpots, level, powerUp, isInvinci
             ctx.fillRect(x + w - 18, y, 10, 5);
             ctx.fillRect(x + w - 18, y + h - 5, 10, 5);
             break;
+          }
 
-          case 'truck-long':
+          case 'truck-long': {
             // Long semi truck with detail
             // Cab
             ctx.fillStyle = '#c62828';
@@ -427,10 +432,11 @@ export const GameCanvas = ({ player, lanes, homeSpots, level, powerUp, isInvinci
             ctx.fillRect(x + w - 22, y, 10, 5);
             ctx.fillRect(x + w - 22, y + h - 5, 10, 5);
             break;
+          }
 
           case 'log-short':
           case 'log-medium':
-          case 'log-long':
+          case 'log-long': {
             // Highly detailed pixel log
             // Main bark base
             ctx.fillStyle = '#7d5e4e';
@@ -495,8 +501,9 @@ export const GameCanvas = ({ player, lanes, homeSpots, level, powerUp, isInvinci
             ctx.fillStyle = '#b09888';
             ctx.fillRect(x + 8, y + 5, obj.width - 16, 1);
             break;
+          }
 
-          case 'turtle':
+          case 'turtle': {
             const turtleCount = 3;
             const turtleSpacing = obj.width / turtleCount;
             const divePhase = obj.divePhase || 'surface';
@@ -582,6 +589,7 @@ export const GameCanvas = ({ player, lanes, homeSpots, level, powerUp, isInvinci
             
             ctx.globalAlpha = 1.0;
             break;
+          }
         }
 
         ctx.restore();
