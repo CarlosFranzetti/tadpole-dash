@@ -1,8 +1,18 @@
 import { useState, useCallback, useEffect } from 'react';
+import { z } from 'zod';
 import { HighScore } from '@/lib/gameTypes';
 
 const STORAGE_KEY = 'tadpole-high-scores';
 const MAX_SCORES = 5;
+
+// Zod schema for validating high score data from localStorage
+const HighScoreSchema = z.object({
+  initials: z.string().min(1).max(3).regex(/^[A-Z ]{1,3}$/),
+  score: z.number().int().min(0).max(999999999),
+  date: z.string().min(1).max(20),
+});
+
+const HighScoresArraySchema = z.array(HighScoreSchema);
 
 const DEFAULT_SCORES: HighScore[] = [
   { initials: 'AAA', score: 500, date: '1/1/26' },
@@ -20,9 +30,18 @@ export const useHighScores = () => {
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
-        setHighScores(parsed.length > 0 ? parsed : DEFAULT_SCORES);
+        // Validate parsed data against schema to prevent XSS/injection
+        const validated = HighScoresArraySchema.safeParse(parsed);
+        if (validated.success && validated.data.length > 0) {
+          setHighScores(validated.data as HighScore[]);
+        } else {
+          // Invalid data structure, reset to defaults
+          setHighScores(DEFAULT_SCORES);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_SCORES));
+        }
       } catch {
         setHighScores(DEFAULT_SCORES);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_SCORES));
       }
     } else {
       setHighScores(DEFAULT_SCORES);
