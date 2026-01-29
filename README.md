@@ -1,51 +1,109 @@
-# Tadpole
+# 🐸 Tadpole Dash
 
-Classic Frogger-style browser game: hop across roads and rivers, collect powerups, and fill homes. Built with TypeScript + React + Vite.
+**Hop your way to victory in this ribbiting Frogger-style adventure!**
 
-## Quick start
+![Title Screen](titlecard.png)
 
-Requirements: Node.js and npm (nvm recommended).
+Get ready to guide your fearless tadpole across busy roads and treacherous rivers in this modern twist on the classic arcade game. Dodge speedy cars, leap onto logs and turtles, and fill all the lily pad homes to advance to the next level!
+
+![Gameplay](gameplay.png)
+
+## 🎮 How to Play
+
+### Controls
+- **Desktop/Laptop**: Use **Arrow Keys** (↑ ↓ ← →) to hop around
+- **iPhone/Mobile**: **Swipe** in any direction to move your tadpole
+
+### Objective
+Navigate your tadpole safely across:
+- 🚗 **Roads** - Dodge cars, trucks, and motorcycles
+- 🌊 **Rivers** - Jump on logs and turtles (but watch out for diving turtles!)
+- 🏠 **Lily Pads** - Fill all 5 homes to complete the level
+
+### Power-Ups
+- ❤️ **Extra Life** - Grab a bonus life to keep hopping
+- ✨ **Invincibility** - Temporary protection from hazards
+
+### Tips
+- Time your movements carefully - patience is key!
+- Watch out for turtles that dive underwater
+- Each level gets faster and trickier
+- You get 3 continues to keep your high score going
+
+## 🚀 Quick Start
+
+### Requirements
+- Node.js and npm (nvm recommended)
+
+### Installation
 
 ```sh
 # Clone the repository
-git clone <YOUR_GIT_URL>
-cd <YOUR_PROJECT_NAME>
+git clone https://github.com/CarlosFranzetti/tadpole-dash.git
+cd tadpole-dash
 
 # Install dependencies
 npm install
 
-# Development server
+# Start the development server
 npm run dev
 
-# Build & preview
+# Build for production
 npm run build
 npm run preview
 
-# Lint
+# Lint your code
 npm run lint
 ```
 
-## How to contribute / edit locally
+## 🛠️ Technologies Used
 
-- Edit files in `src/*`. Pages live in `src/pages`, game logic in `src/hooks/useGameLogic.ts`, and UI in `src/components`.
-- Routes are lazy-loaded in `src/App.tsx` using Suspense — add new routes there and keep the catch-all `*` route at the bottom.
+- **Vite** - Lightning-fast build tool
+- **TypeScript** - Type-safe development
+- **React** - UI framework
+- **shadcn-ui** - Beautiful component library
+- **Tailwind CSS** - Utility-first styling
+- **Framer Motion** - Smooth animations
 
-## Sharing / posts
+## 🎨 Development
 
-When sharing the project (social posts, screenshots, or text messages), please include a screenshot of the game's title screen as the image. To capture it:
+### Project Structure
+- `src/pages` - Game pages and screens
+- `src/components/game` - Game components (TitleScreen, GameCanvas, GameHUD, etc.)
+- `src/hooks/useGameLogic.ts` - Core game logic
+- `src/lib/gameTypes.ts` - TypeScript interfaces
+- `src/lib/gameConstants.ts` - Game configuration
 
-- Run the dev server (`npm run dev`) and open the app at `/`.
-- Wait on the title screen and take a screenshot (the component lives at `src/components/game/TitleScreen.tsx`).
-- Use that screenshot as the preview image for any posts or messages about the project.
+### Adding Routes
+Routes are lazy-loaded in `src/App.tsx` using Suspense. Add new routes there and keep the catch-all `*` route at the bottom.
 
-For link previews, replace `public/og-image.png` with the title-screen screenshot so social/text previews use it.
+## 🏆 High Scores
 
-## What technologies are used for this project?
+Beat your friends! High scores are saved locally, so keep hopping and climbing that leaderboard!
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## 📸 Sharing
 
-If you need help reproducing a specific behavior (audio, physics, or high score persistence), add a short note in your issue and include the title-screen screenshot when relevant.
+Love the game? Share it with friends! When posting on social media:
+- Use the title screen screenshot (`titlecard.png`) as your preview image
+- Replace `public/og-image.png` with the title screen for automatic link previews
+- Tag it with #TadpoleDash 🐸
+
+## 🤝 Contributing
+
+Found a bug? Want to add a feature? Contributions are welcome! Feel free to:
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Submit a pull request
+
+For major changes, please open an issue first to discuss what you'd like to change.
+
+## 📝 License
+
+This project is open source and available for educational and personal use.
+
+---
+
+**Happy Hopping! 🐸💚**
+
+Made with ❤️ and lots of retro gaming nostalgia
